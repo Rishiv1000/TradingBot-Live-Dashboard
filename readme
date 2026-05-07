@@ -1,3 +1,10 @@
-Strategy 1 =>  2Green Buy, then Profit or Loss Sell (EXIT)
+THIS IS TRADING LIVE BOT (MAKE SURE)-
+REAL_TRADING_ENABLED = True
+-------------------------------------
 
+pip install fastapi uvicorn python-dotenv kiteconnect psutil pandas
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+
+
+Strategy 1 =>  2Green Buy, then Profit or Loss Sell (EXIT)
 Strategy 2 => 3Green Candle, then Profit or Loss Sell (EXIT)
