@@ -1,3 +1,3 @@
-Strategy 1 =>  2Green Buy, .1% Profit or Loss Sell
+Strategy 1 =>  2Green Buy, then Profit or Loss Sell (EXIT)
 
-Strategy 2 => 3Green Candle
+Strategy 2 => 3Green Candle, then Profit or Loss Sell (EXIT)
