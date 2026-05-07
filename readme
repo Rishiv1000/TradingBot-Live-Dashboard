@@ -1,10 +1,58 @@
-THIS IS TRADING LIVE BOT (MAKE SURE)-
-REAL_TRADING_ENABLED = True
--------------------------------------
+TradingBot Live Dashboard
+==========================
+⚠️  WARNING: REAL MONEY — REAL_TRADING_ENABLED = True
 
-pip install fastapi uvicorn python-dotenv kiteconnect psutil pandas
-uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+Strategy 1 → 2 Green candles → Buy → Profit/Loss Exit
+Strategy 2 → 3 Green candles → Buy → Profit/Loss Exit
 
 
-Strategy 1 =>  2Green Buy, then Profit or Loss Sell (EXIT)
-Strategy 2 => 3Green Candle, then Profit or Loss Sell (EXIT)
+QUICK START (after clone)
+--------------------------
+
+1. Run setup (installs deps, creates .env files):
+   bash setup.sh
+
+2. Edit credentials:
+   nano shared/.env
+   → Fill in: KITE_API_KEY, KITE_API_SECRET, DB_PASSWORD
+
+3. Start everything:
+   bash run_live_dashboard.sh
+
+4. Open browser:
+   http://<your-server-ip>:5173
+
+5. In dashboard → click "Setup DB" to create MySQL tables
+
+
+STOP
+----
+   bash stop_live_dashboard.sh
+
+
+LOGS
+----
+   tail -f logs/api.log    # FastAPI backend
+   tail -f logs/vite.log   # Vite frontend
+
+
+MANUAL START (without script)
+------------------------------
+   # Backend
+   uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+
+   # Frontend
+   cd dashboard-ui && npm run dev
+
+
+REQUIREMENTS
+------------
+   Python: pip install -r shared/setup_system/requirements.txt
+   Node:   cd dashboard-ui && npm install
+   MySQL:  running on localhost
+
+
+PORTS
+-----
+   8000 → FastAPI backend (internal only, proxied by Vite)
+   5173 → Vite frontend  (open this in browser)

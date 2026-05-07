@@ -1,27 +1,28 @@
-# Sensitive
+# ── Sensitive ─────────────────────────────────────────────────
 .env
 shared/.env
 shared/access_token.txt
+dashboard-ui/.env
+dashboard-ui/.env.local
 
-# Python
+# ── Python ────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 venv/
 .venv/
 
-# Trading specific
+# ── Trading specific ──────────────────────────────────────────
 logs/*.log
 */.reload_symbols
 */live_df_cache.pkl
+.live_pids
 
-# UI
+# ── UI ────────────────────────────────────────────────────────
 dashboard-ui/node_modules/
 dashboard-ui/dist/
-dashboard-ui/.env
-dashboard-ui/.env.local
 
-# IDE/OS
+# ── IDE/OS ────────────────────────────────────────────────────
 .vscode/
 .idea/
 .DS_Store
