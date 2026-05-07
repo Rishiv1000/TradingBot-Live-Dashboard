@@ -1,7 +1,6 @@
 # ── Sensitive ─────────────────────────────────────────────────
 .env
 shared/.env
-shared/access_token.txt
 dashboard-ui/.env
 dashboard-ui/.env.local
 
