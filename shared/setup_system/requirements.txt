@@ -1,0 +1,8 @@
+kiteconnect==5.0.1
+fastapi
+uvicorn
+pandas
+mysql-connector-python
+python-dotenv
+psutil
+openpyxl
