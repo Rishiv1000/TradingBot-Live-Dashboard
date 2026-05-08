@@ -1,15 +1,14 @@
 TradingBot Live Dashboard 
-Test
 ==========================
 ⚠️  WARNING: REAL MONEY — REAL_TRADING_ENABLED = True
 
 Strategy 1 → 2 Green candles → Buy → Profit/Loss Exit
 Strategy 2 → 3 Green candles → Buy → Profit/Loss Exit
+______________________________________________________
 
 
 QUICK START (after clone)
 --------------------------
-
 1. Run setup (installs deps, creates .env files):
    bash setup.sh
 
