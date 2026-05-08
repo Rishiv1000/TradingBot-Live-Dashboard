@@ -99,7 +99,6 @@ export default function Sidebar({
   const [setupDbLoading, setSetupDbLoading] = useState(false);
   const [defaultsMsg, setDefaultsMsg] = useState("");
   const [defaultsLoading, setDefaultsLoading] = useState(false);
-  const [reloadMsg, setReloadMsg] = useState("");
   const [reloadLoading, setReloadLoading] = useState(false);
   const [stopApiMsg, setStopApiMsg] = useState("");
   const [logoutMsg, setLogoutMsg] = useState("");
@@ -123,16 +122,6 @@ export default function Sidebar({
     } catch (e) {
       setDefaultsMsg("❌ " + (e.response?.data?.detail || e.message));
     } finally { setDefaultsLoading(false); }
-  };
-
-  const handleReloadSymbols = async () => {
-    setReloadLoading(true); setReloadMsg("");
-    try {
-      const res = await api.post("/api/symbols/reload-all");
-      setReloadMsg(res.data.success ? "✅ Reload signal sent" : `❌ ${res.data.error}`);
-    } catch (e) {
-      setReloadMsg("❌ " + (e.response?.data?.detail || e.message));
-    } finally { setReloadLoading(false); }
   };
 
   const handleStopServer = async () => {

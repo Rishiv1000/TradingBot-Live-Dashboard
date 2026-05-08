@@ -9,6 +9,19 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
   const [addMsg, setAddMsg]             = useState("");
   const [addLoading, setAddLoading]     = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [reloadMsg, setReloadMsg]       = useState("");
+  const [reloadLoading, setReloadLoading] = useState(false);
+
+  const handleReload = async () => {
+    setReloadLoading(true); setReloadMsg("");
+    try {
+      const res = await api.post(`/api/symbols/${strategy}/reload-cache`);
+      setReloadMsg(res.data.success ? "✅ Reloaded" : `❌ ${res.data.error}`);
+      onRefreshSymbols(strategy);
+    } catch (e) {
+      setReloadMsg("❌ " + (e.response?.data?.detail || e.message));
+    } finally { setReloadLoading(false); }
+  };
 
   const handleAdd = async () => {
     if (!symbolInput.trim()) { setAddMsg("Enter a symbol first."); return; }
@@ -142,7 +155,11 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
         <button className="btn-danger" onClick={handleDelete} disabled={!deleteTarget || deleteLoading}>
           {deleteLoading ? "Deleting..." : "🗑️ Delete"}
         </button>
+        <button className="btn-secondary" onClick={handleReload} disabled={reloadLoading}>
+          {reloadLoading ? "..." : "🔄 Reload"}
+        </button>
       </div>
+      {reloadMsg && <div style={{ fontSize: "11px", marginTop: "6px", color: reloadMsg.startsWith("✅") ? "#2ea043" : "#da3633" }}>{reloadMsg}</div>}
     </div>
   );
 }
