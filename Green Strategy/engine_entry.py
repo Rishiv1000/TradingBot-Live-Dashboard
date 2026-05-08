@@ -150,26 +150,28 @@ class EntryEngine:
     def run_cycle(self):
         now = datetime.now().strftime("%H:%M:%S")
         symbols_checked = 0
+
+        # Single DB query for all symbols at once
+        symbols_table = getattr(config, "SYMBOLS_TABLE", "symbols_green")
+        conn = self._db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(f"SELECT * FROM {symbols_table}")
+        all_rows = {r["symbol"]: r for r in cursor.fetchall()}
+        conn.close()
+
         for item in fetch_runtime_symbols(self.kite):
             symbol, token, exchange = item["symbol"], item["token"], item["exchange"]
             if not token:
                 print(f"[{now}] [GREEN] ⚠️ {symbol}: instrument_token missing, skipping.")
                 continue
 
-            conn = self._db_connection()
-            cursor = conn.cursor(dictionary=True)
-            symbols_table = getattr(config, "SYMBOLS_TABLE", "symbols_green")
-            cursor.execute(f"SELECT * FROM {symbols_table} WHERE symbol=%s", (symbol,))
-            row = cursor.fetchone()
-            conn.close()
-
+            row = all_rows.get(symbol)
             if not row or row["isExecuted"] == 1:
                 continue
 
             # Skip symbols in rejection cooldown
             if self._is_in_cooldown(symbol):
                 continue
-
 
             symbols_checked += 1
             try:

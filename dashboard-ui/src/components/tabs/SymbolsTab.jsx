@@ -22,7 +22,9 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
       if (res.data.success) {
         setAddMsg(`✅ Added ${symbolInput.toUpperCase()} (token: ${res.data.token})`);
         setSymbolInput("");
-        onRefreshSymbols(strategy);   // refresh only this strategy's symbols
+        onRefreshSymbols(strategy);
+        // Signal strategy to reload symbol cache on next cycle
+        await api.post(`/api/symbols/${strategy}/reload-cache`).catch(() => {});
       } else {
         setAddMsg("❌ " + (res.data.error || "Unknown error"));
       }
@@ -40,6 +42,8 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
       await api.delete(`/api/symbols/${strategy}/${deleteTarget}`);
       setDeleteTarget("");
       onRefreshSymbols(strategy);
+      // Signal strategy to reload symbol cache on next cycle
+      await api.post(`/api/symbols/${strategy}/reload-cache`).catch(() => {});
     } catch (e) {
       alert("Delete failed: " + (e.response?.data?.detail || e.message));
     } finally {
