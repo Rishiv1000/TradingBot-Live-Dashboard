@@ -577,6 +577,29 @@ def reload_all_symbol_caches():
     return {"success": True, "message": "All strategies will reload symbols on next cycle."}
 
 
+@app.post("/api/kite/logout")
+def kite_logout():
+    """Kill all strategies and clear the access token."""
+    # Kill all running strategies first
+    for strategy in STRATEGIES:
+        p = _find_proc(STRATEGIES[strategy]["runner"])
+        if p:
+            try:
+                for c in p.children(recursive=True):
+                    c.kill()
+                p.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+    _invalidate_proc_cache()
+    # Clear the access token
+    try:
+        with open(ACCESS_TOKEN_FILE, "w") as f:
+            f.write("")
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    return {"success": True}
+
+
 @app.post("/api/server/stop")
 def stop_server():
     """Gracefully stop the API server."""

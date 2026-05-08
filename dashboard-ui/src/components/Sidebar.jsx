@@ -95,24 +95,6 @@ export default function Sidebar({
     }
   };
 
-  const handleStopAll = async () => {
-    try {
-      await api.post("/api/strategy/stop-all");
-      onRefresh();
-    } catch (e) {
-      alert("Stop all failed: " + (e.response?.data?.detail || e.message));
-    }
-  };
-
-  const handleKillAll = async () => {
-    try {
-      await api.post("/api/strategy/kill-all");
-      onRefresh();
-    } catch (e) {
-      alert("Kill all failed: " + (e.response?.data?.detail || e.message));
-    }
-  };
-
   const [setupDbMsg, setSetupDbMsg] = useState("");
   const [setupDbLoading, setSetupDbLoading] = useState(false);
   const [defaultsMsg, setDefaultsMsg] = useState("");
@@ -120,6 +102,7 @@ export default function Sidebar({
   const [reloadMsg, setReloadMsg] = useState("");
   const [reloadLoading, setReloadLoading] = useState(false);
   const [stopApiMsg, setStopApiMsg] = useState("");
+  const [logoutMsg, setLogoutMsg] = useState("");
 
   const handleSetupDb = async () => {
     setSetupDbLoading(true); setSetupDbMsg("");
@@ -159,6 +142,23 @@ export default function Sidebar({
       setStopApiMsg("✅ Server stopping...");
     } catch {
       setStopApiMsg("✅ Server stopping...");
+    }
+  };
+
+  const handleLogout = async () => {
+    if (!window.confirm("This will kill all strategies and clear the session token. Continue?")) return;
+    setLogoutMsg("");
+    try {
+      const res = await api.post("/api/kite/logout");
+      if (res.data.success) {
+        setLogoutMsg("✅ Logged out. All strategies stopped.");
+        onSessionSaved(); // re-check kite status → will show Not Logged In
+        onRefresh();
+      } else {
+        setLogoutMsg("❌ " + (res.data.error || "Unknown error"));
+      }
+    } catch (e) {
+      setLogoutMsg("❌ " + (e.response?.data?.detail || e.message));
     }
   };
 
@@ -275,14 +275,6 @@ export default function Sidebar({
             );
           })}
 
-          <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
-            <button className="btn-warning" style={{ flex: 1, fontSize: "12px" }} onClick={handleStopAll}>
-              ⛔ Stop All
-            </button>
-            <button className="btn-danger" style={{ flex: 1, fontSize: "12px" }} onClick={handleKillAll}>
-              💀 Kill All
-            </button>
-          </div>
         </div>
 
         <hr className="divider" />
@@ -307,6 +299,22 @@ export default function Sidebar({
 
         <div style={{ fontSize: "11px", color: "#484f58", marginTop: "auto", paddingTop: "8px" }}>
           Last sync: {lastSync || "—"}
+        </div>
+
+        {/* Logout */}
+        <div style={{ marginTop: "12px" }}>
+          <button
+            className="btn-danger"
+            style={{ width: "100%", fontSize: "12px" }}
+            onClick={handleLogout}
+          >
+            🔴 Logout &amp; Expire Session
+          </button>
+          {logoutMsg && (
+            <div style={{ fontSize: "11px", marginTop: "6px", color: logoutMsg.startsWith("✅") ? "#2ea043" : "#da3633" }}>
+              {logoutMsg}
+            </div>
+          )}
         </div>
       </div>
 
