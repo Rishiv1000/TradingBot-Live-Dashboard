@@ -23,7 +23,7 @@ DB_NAME = os.getenv("DB_NAME", "trading_bot_live")
 
 # --- [COMMON TRADING SETTINGS] ---
 DEFAULT_QTY = 1
-REAL_TRADING_ENABLED = True
+REAL_TRADING_ENABLED = False
 LIVE_EXCHANGE = "NSE"
 TIMEFRAME = "minute"
 
