@@ -2,6 +2,7 @@ import os
 import pickle
 import subprocess
 import sys
+import time as _time
 from typing import Optional
 
 import mysql.connector
@@ -121,25 +122,18 @@ def get_kite():
 
 
 def kite_logged_in() -> bool:
-    """
-    Check if a valid access token exists.
-    We only verify the token file exists and is non-empty — no network call.
-    A network call (profile()) can fail due to timeouts even with a valid token.
-    """
-    if not API_KEY:
-        return False
-    if not os.path.exists(ACCESS_TOKEN_FILE):
+    """Verify the access token is valid by fetching profile from Zerodha."""
+    kite = get_kite()
+    if not kite:
         return False
     try:
-        with open(ACCESS_TOKEN_FILE) as f:
-            tok = f.read().strip()
-        return bool(tok)
+        kite.profile()
+        return True
     except Exception:
         return False
 
 
 # ── Process helpers ───────────────────────────────────────────────────────────
-import time as _time
 
 _proc_cache: dict = {}
 _proc_cache_ts: float = 0.0
