@@ -2,6 +2,7 @@ import os
 import pickle
 import sys
 import time
+import threading
 from datetime import datetime
 
 import mysql.connector
@@ -65,6 +66,37 @@ class EntryEngine:
         conn.commit()
         conn.close()
 
+    def _verify_and_mark(self, symbol, exchange, order_id, buy_price, buy_time):
+        """Background thread — waits for order fill, marks entry. Does NOT block other symbols."""
+        try:
+            final_buy_price = buy_price
+            order_filled = False
+            for attempt in range(6):
+                time.sleep(2 if attempt == 0 else 3)
+                for state in reversed(self.kite.order_history(order_id)):
+                    if state["status"] == "COMPLETE":
+                        order_filled = True
+                        if state.get("average_price"):
+                            final_buy_price = float(state["average_price"])
+                        break
+                    elif state["status"] in ("CANCELLED", "REJECTED"):
+                        print(f"[GREEN3] ❌ BUY order {order_id} {state['status']} for {symbol} — NOT marking entry.")
+                        self._set_cooldown(symbol)
+                        return
+                if order_filled:
+                    break
+                print(f"[GREEN3] ⏳ {symbol} order still pending (attempt {attempt+1}/6)...")
+
+            if not order_filled:
+                print(f"[GREEN3] ⚠️ {symbol} order not filled after retries — NOT marking entry.")
+                self._set_cooldown(symbol)
+                return
+
+            self._mark_entry(symbol, final_buy_price, str(buy_time), str(order_id), "MIS")
+            print(f"[GREEN3] ✅ Entry marked: {symbol} @ {final_buy_price}")
+        except Exception as e:
+            print(f"[GREEN3] ⚠️ Verify failed for {symbol}: {e} — NOT marking entry.")
+
     def perform_buy(self, symbol, exchange, buy_price, buy_time):
         order_id = place_real_buy(
             self.kite,
@@ -79,36 +111,17 @@ class EntryEngine:
             self._set_cooldown(symbol)
             return
 
-        final_buy_price = buy_price
         if str(order_id).startswith("SIMULATED"):
-            self._mark_entry(symbol, final_buy_price, str(buy_time), str(order_id), "MIS")
+            self._mark_entry(symbol, buy_price, str(buy_time), str(order_id), "MIS")
             return
 
-        # For real orders — verify order was actually FILLED before marking entry
-        try:
-            time.sleep(1)
-            order_filled = False
-            for state in reversed(self.kite.order_history(order_id)):
-                if state["status"] == "COMPLETE":
-                    order_filled = True
-                    if state.get("average_price"):
-                        final_buy_price = float(state["average_price"])
-                    break
-                elif state["status"] in ("CANCELLED", "REJECTED"):
-                    print(f"[GREEN3] ❌ BUY order {order_id} was {state['status']} for {symbol} — NOT marking entry.")
-                    self._set_cooldown(symbol)
-                    return
-
-            if not order_filled:
-                print(f"[GREEN3] ⚠️ BUY order {order_id} not COMPLETE yet for {symbol} — NOT marking entry.")
-                self._set_cooldown(symbol)
-                return
-
-        except Exception as e:
-            print(f"[GREEN3] ⚠️ Could not verify order {order_id} for {symbol}: {e} — NOT marking entry.")
-            return
-
-        self._mark_entry(symbol, final_buy_price, str(buy_time), str(order_id), "MIS")
+        # Fire background thread — other symbols continue without waiting
+        threading.Thread(
+            target=self._verify_and_mark,
+            args=(symbol, exchange, order_id, buy_price, buy_time),
+            daemon=True,
+        ).start()
+        print(f"[GREEN3] 🔄 {symbol} order {order_id} placed — verifying fill in background...")
 
 
     def run_cycle(self):

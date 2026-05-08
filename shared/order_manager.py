@@ -30,9 +30,8 @@ def place_real_buy(kite, symbol, quantity, exchange, config):
         instrument = f"{exchange.upper()}:{symbol.upper()}"
         ltp = kite.ltp(instrument)[instrument]["last_price"]
 
-        # Aggressive limit — 0.5% above LTP so it fills immediately (like market order)
-        slippage = getattr(config, "BUY_SLIPPAGE", 0.5)
-        limit_price = round(ltp * (1 + slippage / 100), 1)
+        # Aggressive limit — ₹0.20 above LTP, fills immediately on any small uptick
+        limit_price = round(ltp + 0.20, 2)
 
         order_id = kite.place_order(
             variety=kite.VARIETY_REGULAR,
@@ -44,7 +43,7 @@ def place_real_buy(kite, symbol, quantity, exchange, config):
             price=limit_price,
             product=kite.PRODUCT_MIS,
         )
-        print(f"✅ BUY order placed: {symbol} @ {limit_price} (LTP={ltp}) | order_id: {order_id}")
+        print(f"✅ BUY limit order placed: {symbol} @ {limit_price} (LTP={ltp}) | order_id: {order_id}")
 
         # Verify account actually holds the position
         time.sleep(1.5)
@@ -69,9 +68,8 @@ def place_real_sell(kite, symbol, quantity, exchange, product, config, tag=None)
         instrument = f"{exchange.upper()}:{symbol.upper()}"
         ltp = kite.ltp(instrument)[instrument]["last_price"]
 
-        # Aggressive limit — 0.5% below LTP so it fills immediately (like market order)
-        slippage = getattr(config, "SELL_SLIPPAGE", 0.5)
-        limit_price = round(ltp * (1 - slippage / 100), 1)
+        # Aggressive limit — ₹0.20 below LTP, fills immediately on any small downtick
+        limit_price = round(ltp - 0.20, 2)
 
         order_id = kite.place_order(
             variety=kite.VARIETY_REGULAR,
@@ -84,7 +82,7 @@ def place_real_sell(kite, symbol, quantity, exchange, product, config, tag=None)
             product=product,
             tag=str(tag)[:20] if tag else None,
         )
-        print(f"✅ SELL order placed: {symbol} @ {limit_price} (LTP={ltp}) | order_id: {order_id}")
+        print(f"✅ SELL limit order placed: {symbol} @ {limit_price} (LTP={ltp}) | order_id: {order_id}")
 
         # Verify position is now closed (qty = 0)
         time.sleep(1.5)
