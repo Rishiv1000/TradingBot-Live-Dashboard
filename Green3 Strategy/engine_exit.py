@@ -51,9 +51,17 @@ class ExitEngine:
             return True, "STOPLOSS HIT"
         return False, ""
 
-    def _close_position_and_log(self, row, sell_price, reason, sell_order_id):
-        pnl = (sell_price - float(row["buyprice"])) * getattr(config, "DEFAULT_QTY", 1)
-        slippage = float(row["buyprice"]) * (getattr(config, "SELL_SLIPPAGE", 0.05) / 100)
+    def _close_position_and_log(self, row, sell_price, reason, sell_order_id, ltp_at_sell=None):
+        buy_price  = float(row["buyprice"])
+        qty        = getattr(config, "DEFAULT_QTY", 1)
+        pnl        = round((sell_price - buy_price) * qty, 2)
+
+        # Real slippage = difference between LTP when signal triggered and actual fill price
+        buy_slippage  = round(buy_price - float(row.get("signal_price") or buy_price), 2)
+        sell_slippage = round((ltp_at_sell or sell_price) - sell_price, 2)
+        total_slippage = round(buy_slippage + sell_slippage, 2)
+
+        print(f"[GREEN3] 📊 {row['symbol']} slippage → BUY: ₹{buy_slippage} | SELL: ₹{sell_slippage} | TOTAL: ₹{total_slippage}")
         conn = self._db_connection()
         cursor = conn.cursor()
         symbols_table = getattr(config, "SYMBOLS_TABLE", "symbols_green3")
@@ -61,7 +69,7 @@ class ExitEngine:
             "INSERT INTO trades_log (symbol, buytime, buyprice, selltime, sellprice, pnl, reason, slippage, buy_order_id, sell_order_id, strategy) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (row["symbol"], row["buytime"], row["buyprice"], datetime.now(),
-             sell_price, pnl, reason, slippage,
+             sell_price, pnl, reason, total_slippage,
              str(row["buy_order_id"]), str(sell_order_id), config.STRATEGY_NAME),
         )
         cursor.execute(
@@ -172,7 +180,7 @@ class ExitEngine:
             except Exception:
                 pass
 
-        self._close_position_and_log(row, sell_price, reason, exit_order_id)
+        self._close_position_and_log(row, sell_price, reason, exit_order_id, ltp)
         with self.state["lock"]:
             self.state["processing"].discard(row["buy_order_id"])
 

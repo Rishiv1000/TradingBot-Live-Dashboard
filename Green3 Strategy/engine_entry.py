@@ -93,7 +93,8 @@ class EntryEngine:
                 return
 
             self._mark_entry(symbol, final_buy_price, str(buy_time), str(order_id), "MIS")
-            print(f"[GREEN3] ✅ Entry marked: {symbol} @ {final_buy_price}")
+            buy_slippage = round(final_buy_price - buy_price, 2)
+            print(f"[GREEN3] ✅ Entry marked: {symbol} @ {final_buy_price} | BUY slippage: ₹{buy_slippage}")
         except Exception as e:
             print(f"[GREEN3] ⚠️ Verify failed for {symbol}: {e} — NOT marking entry.")
 
