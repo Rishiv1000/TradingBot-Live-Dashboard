@@ -8,7 +8,7 @@ from typing import Optional
 import mysql.connector
 import psutil
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -551,7 +551,38 @@ def set_defaults():
         return {"success": False, "error": str(e)}
 
 
-@app.post("/api/symbols/{strategy}/reload-cache")
+@app.post("/api/symbols/{strategy}/bulk")
+async def bulk_symbols(strategy: str, request: Request):
+    """Bulk add symbols from JSON list: [{symbol, exchange}]"""
+    from fastapi import Request
+    strategy = strategy.upper()
+    if strategy not in STRATEGIES:
+        raise HTTPException(status_code=404, detail="Unknown strategy")
+    body = await request.json()
+    symbols = body.get("symbols", [])
+    kite = get_kite()
+    if not kite:
+        raise HTTPException(status_code=401, detail="Kite session missing — login first")
+    added, failed = [], []
+    for item in symbols:
+        sym = item.get("symbol", "").strip().upper()
+        exch = item.get("exchange", "NSE").strip().upper()
+        if not sym:
+            continue
+        try:
+            inst = f"{exch}:{sym}"
+            token = kite.ltp(inst)[inst]["instrument_token"]
+            table = STRATEGIES[strategy]["table"]
+            db_exec(
+                f"INSERT INTO {table} (symbol, exchange, instrument_token, isExecuted) VALUES (%s, %s, %s, 0) "
+                f"ON DUPLICATE KEY UPDATE exchange=%s, instrument_token=%s",
+                (sym, exch, token, exch, token),
+            )
+            added.append(sym)
+        except Exception as e:
+            failed.append({"symbol": sym, "error": str(e)})
+        import time as _t; _t.sleep(0.35)  # rate limit
+    return {"success": True, "added": added, "failed": failed}
 def reload_symbol_cache(strategy: str):
     """Signal the strategy process to reload symbols from DB on next cycle."""
     strategy = strategy.upper()

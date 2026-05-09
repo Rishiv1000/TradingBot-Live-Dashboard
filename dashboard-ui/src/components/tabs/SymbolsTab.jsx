@@ -1,4 +1,5 @@
 import { useState } from "react";
+import * as XLSX from "xlsx";
 import api from "../../api";
 
 // symbols and onRefreshSymbols come from App — no internal fetching
@@ -11,6 +12,8 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [reloadMsg, setReloadMsg]       = useState("");
   const [reloadLoading, setReloadLoading] = useState(false);
+  const [bulkMsg, setBulkMsg]           = useState("");
+  const [bulkLoading, setBulkLoading]   = useState(false);
 
   const handleReload = async () => {
     setReloadLoading(true); setReloadMsg("");
@@ -21,6 +24,32 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
     } catch (e) {
       setReloadMsg("❌ " + (e.response?.data?.detail || e.message));
     } finally { setReloadLoading(false); }
+  };
+
+  const handleExcelUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setBulkLoading(true); setBulkMsg("");
+    try {
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws);
+      const symbols = rows
+        .filter(r => r.symbol || r.Symbol)
+        .map(r => ({
+          symbol: (r.symbol || r.Symbol || "").toString().trim().toUpperCase(),
+          exchange: (r.exchange || r.Exchange || "NSE").toString().trim().toUpperCase(),
+        }))
+        .filter(r => r.symbol);
+      if (!symbols.length) { setBulkMsg("❌ No valid symbols found in file"); setBulkLoading(false); return; }
+      const res = await api.post(`/api/symbols/${strategy}/bulk`, { symbols });
+      setBulkMsg(`✅ Added: ${res.data.added.length} | Failed: ${res.data.failed.length}`);
+      onRefreshSymbols(strategy);
+      await api.post(`/api/symbols/${strategy}/reload-cache`).catch(() => {});
+    } catch (err) {
+      setBulkMsg("❌ " + err.message);
+    } finally { setBulkLoading(false); e.target.value = ""; }
   };
 
   const handleAdd = async () => {
@@ -160,6 +189,19 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
         </button>
       </div>
       {reloadMsg && <div style={{ fontSize: "11px", marginTop: "6px", color: reloadMsg.startsWith("✅") ? "#2ea043" : "#da3633" }}>{reloadMsg}</div>}
+
+      {/* Bulk Excel Upload */}
+      <div style={{ marginTop: "14px" }}>
+        <div style={{ fontSize: "11px", color: "#8b949e", marginBottom: "6px" }}>📂 Bulk Upload from Excel</div>
+        <div style={{ fontSize: "11px", color: "#484f58", marginBottom: "6px" }}>Excel format: columns <b>symbol</b>, <b>exchange</b></div>
+        <label style={{ display: "inline-block" }}>
+          <input type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={handleExcelUpload} disabled={bulkLoading} />
+          <span className="btn-blue" style={{ cursor: "pointer", fontSize: "12px", padding: "6px 12px", borderRadius: "6px", display: "inline-block" }}>
+            {bulkLoading ? "Uploading..." : "📤 Upload Excel"}
+          </span>
+        </label>
+        {bulkMsg && <div style={{ fontSize: "11px", marginTop: "6px", color: bulkMsg.startsWith("✅") ? "#2ea043" : "#da3633" }}>{bulkMsg}</div>}
+      </div>
     </div>
   );
 }
