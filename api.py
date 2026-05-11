@@ -6,6 +6,7 @@ import time as _time
 from typing import Optional
 
 import mysql.connector
+import mysql.connector.pooling
 import psutil
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
@@ -35,6 +36,7 @@ DB_HOST     = _env("DB_HOST", "localhost")
 DB_USER     = _env("DB_USER", "root")
 DB_PASSWORD = _env("DB_PASSWORD", "")
 DB_NAME     = _env("DB_NAME", "trading_bot_live")
+DB_POOL_SIZE = int(_env("DB_POOL_SIZE", "5"))
 
 STRATEGIES = {
     "GREEN": {
@@ -62,25 +64,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── DB helpers (MySQL) ────────────────────────────────────────────────────────
+# ── DB connection pool ────────────────────────────────────────────────────────
+# A single pool shared across all requests — avoids opening a new TCP
+# connection to MySQL on every API call (status polling, symbol adds, etc.)
+_db_pool = mysql.connector.pooling.MySQLConnectionPool(
+    pool_name="live_pool",
+    pool_size=DB_POOL_SIZE,
+    host=DB_HOST,
+    user=DB_USER,
+    password=DB_PASSWORD,
+    database=DB_NAME,
+)
+
+
 def _db():
-    return mysql.connector.connect(
-        host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME
-    )
+    # Raises mysql.connector.errors.PoolError if all connections are in use
+    return _db_pool.get_connection()
 
 
 def db_fetchall(query: str, params=()):
-    conn = _db()
+    try:
+        conn = _db()
+    except mysql.connector.errors.PoolError:
+        raise HTTPException(status_code=503, detail="Database pool exhausted — try again shortly")
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute(query, params)
         return cursor.fetchall()
     finally:
+        # Returns connection to pool, does NOT close the underlying TCP socket
         conn.close()
 
 
 def db_exec(query: str, params=()):
-    conn = _db()
+    try:
+        conn = _db()
+    except mysql.connector.errors.PoolError:
+        raise HTTPException(status_code=503, detail="Database pool exhausted — try again shortly")
     cursor = conn.cursor()
     try:
         cursor.execute(query, params)
@@ -90,7 +110,10 @@ def db_exec(query: str, params=()):
 
 
 def db_scalar(query: str, params=()):
-    conn = _db()
+    try:
+        conn = _db()
+    except mysql.connector.errors.PoolError:
+        raise HTTPException(status_code=503, detail="Database pool exhausted — try again shortly")
     cursor = conn.cursor()
     try:
         cursor.execute(query, params)
@@ -229,10 +252,7 @@ def get_status():
         sym_count  = 0
         open_count = 0
         try:
-            conn = mysql.connector.connect(
-                host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME,
-                connection_timeout=5,
-            )
+            conn = _db()
             cur = conn.cursor()
             cur.execute(f"SELECT COUNT(*) FROM {meta['table']}")
             sym_count = cur.fetchone()[0]

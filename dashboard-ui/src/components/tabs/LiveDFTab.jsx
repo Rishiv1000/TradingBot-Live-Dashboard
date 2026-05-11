@@ -1,32 +1,137 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { createChart, CandlestickSeries } from "lightweight-charts";
 import api from "../../api";
 
-// Countdown to next 1-minute candle boundary
+// ── Countdown to next 1-minute candle boundary ────────────────────────────────
 function useNextCandleCountdown() {
   const [countdown, setCountdown] = useState(0);
-
   useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      const secondsLeft = 60 - now.getSeconds();
-      setCountdown(secondsLeft);
-    };
+    const tick = () => setCountdown(60 - new Date().getSeconds());
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
-
   return countdown;
 }
 
+// ── Candlestick chart using lightweight-charts ────────────────────────────────
+function CandleChart({ data, columns, color }) {
+  const containerRef = useRef(null);
+  const chartRef     = useRef(null);
+  const seriesRef    = useRef(null);
+
+  // Build chart once on mount
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const chart = createChart(containerRef.current, {
+      width:  containerRef.current.clientWidth,
+      height: 320,
+      layout: {
+        background: { color: "#0d1117" },
+        textColor:  "#8b949e",
+      },
+      grid: {
+        vertLines: { color: "#21262d" },
+        horzLines: { color: "#21262d" },
+      },
+      crosshair: { mode: 1 },
+      rightPriceScale: { borderColor: "#30363d" },
+      timeScale: {
+        borderColor:     "#30363d",
+        timeVisible:     true,
+        secondsVisible:  false,
+      },
+    });
+
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor:        color || "#2ea043",
+      downColor:      "#da3633",
+      borderUpColor:  color || "#2ea043",
+      borderDownColor:"#da3633",
+      wickUpColor:    color || "#2ea043",
+      wickDownColor:  "#da3633",
+    });
+
+    chartRef.current  = chart;
+    seriesRef.current = series;
+
+    // Resize chart when window resizes
+    const onResize = () => {
+      if (containerRef.current) {
+        chart.applyOptions({ width: containerRef.current.clientWidth });
+      }
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      chart.remove();
+    };
+  }, [color]);
+
+  // Update data whenever df rows change
+  useEffect(() => {
+    if (!seriesRef.current || !data || data.length === 0) return;
+
+    // Map df columns to lightweight-charts format
+    // Expects: date, open, high, low, close columns
+    const dateCol  = columns.find((c) => c === "date");
+    const openCol  = columns.find((c) => c === "open");
+    const highCol  = columns.find((c) => c === "high");
+    const lowCol   = columns.find((c) => c === "low");
+    const closeCol = columns.find((c) => c === "close");
+
+    if (!dateCol || !openCol || !highCol || !lowCol || !closeCol) return;
+
+    const candles = data
+      .map((row) => {
+        // Convert "2024-01-15 09:15:00" → Unix timestamp (seconds)
+        const ts = Math.floor(new Date(row[dateCol]).getTime() / 1000);
+        return {
+          time:  ts,
+          open:  parseFloat(row[openCol]),
+          high:  parseFloat(row[highCol]),
+          low:   parseFloat(row[lowCol]),
+          close: parseFloat(row[closeCol]),
+        };
+      })
+      .filter((c) => !isNaN(c.time) && !isNaN(c.open))
+      // lightweight-charts requires ascending time, no duplicates
+      .sort((a, b) => a.time - b.time)
+      .filter((c, i, arr) => i === 0 || c.time !== arr[i - 1].time);
+
+    if (candles.length === 0) return;
+
+    seriesRef.current.setData(candles);
+    chartRef.current.timeScale().fitContent();
+  }, [data, columns]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width:        "100%",
+        height:       "320px",
+        borderRadius: "8px",
+        overflow:     "hidden",
+        border:       "1px solid #21262d",
+        marginBottom: "16px",
+      }}
+    />
+  );
+}
+
+// ── Per-strategy section ──────────────────────────────────────────────────────
 function StrategyLiveDF({ strategy, color, symbols }) {
   const symNames = (symbols || []).map((s) => s.symbol);
   const [selectedSymbol, setSelectedSymbol] = useState(symNames[0] || "");
-  const [dfData, setDfData]     = useState(null);
-  const [loading, setLoading]   = useState(false);
-  const [rowsToShow, setRowsToShow] = useState(5);
+  const [dfData,    setDfData]    = useState(null);
+  const [loading,   setLoading]   = useState(false);
+  const [rowsToShow, setRowsToShow] = useState(20);
+  const [showChart,  setShowChart]  = useState(true);
   const countdown = useNextCandleCountdown();
 
+  // Keep selected symbol valid when symbol list changes
   useEffect(() => {
     if (symNames.length > 0 && !symNames.includes(selectedSymbol)) {
       setSelectedSymbol(symNames[0]);
@@ -42,9 +147,13 @@ function StrategyLiveDF({ strategy, color, symbols }) {
       .finally(() => setLoading(false));
   }, [strategy, selectedSymbol]);
 
+  // Fetch on symbol change
+  useEffect(() => { fetchDF(); }, [fetchDF]);
+
+  // Auto-refresh when countdown hits 1 (candle just closed)
   useEffect(() => {
-    fetchDF();
-  }, [fetchDF]);
+    if (countdown === 1) fetchDF();
+  }, [countdown]);
 
   return (
     <div className="strategy-section">
@@ -73,16 +182,12 @@ function StrategyLiveDF({ strategy, color, symbols }) {
                 Rows: <strong style={{ color: "#f0f6fc" }}>{rowsToShow}</strong>
               </div>
               <input
-                type="range"
-                min={5}
-                max={500}
-                step={5}
+                type="range" min={5} max={500} step={5}
                 value={rowsToShow}
                 onChange={(e) => setRowsToShow(Number(e.target.value))}
                 style={{ width: "160px", padding: 0, border: "none", background: "transparent", cursor: "pointer" }}
               />
             </div>
-            {/* Reload button */}
             <button
               className="btn-secondary btn-sm"
               onClick={fetchDF}
@@ -90,6 +195,13 @@ function StrategyLiveDF({ strategy, color, symbols }) {
               style={{ alignSelf: "flex-end" }}
             >
               {loading ? "⏳" : "🔄 Reload DF"}
+            </button>
+            <button
+              className="btn-secondary btn-sm"
+              onClick={() => setShowChart((v) => !v)}
+              style={{ alignSelf: "flex-end" }}
+            >
+              {showChart ? "📉 Hide Chart" : "📈 Show Chart"}
             </button>
           </div>
 
@@ -113,7 +225,7 @@ function StrategyLiveDF({ strategy, color, symbols }) {
                   <div className="metric-label">Showing</div>
                   <div className="metric-value">{Math.min(rowsToShow, dfData.data?.length || 0)}</div>
                 </div>
-                {/* Next candle countdown */}
+                {/* Countdown — turns yellow in last 5 seconds */}
                 <div className="metric-box" style={{ borderColor: countdown <= 5 ? "#e3b341" : "#30363d" }}>
                   <div className="metric-label" style={{ color: countdown <= 5 ? "#e3b341" : "#8b949e" }}>
                     Next Candle In
@@ -124,6 +236,16 @@ function StrategyLiveDF({ strategy, color, symbols }) {
                 </div>
               </div>
 
+              {/* Candlestick chart */}
+              {showChart && dfData.data && dfData.data.length > 0 && (
+                <CandleChart
+                  data={dfData.data}
+                  columns={dfData.columns}
+                  color={color}
+                />
+              )}
+
+              {/* Data table */}
               {dfData.data && dfData.data.length > 0 ? (
                 <div className="table-wrapper">
                   <table>
@@ -156,6 +278,7 @@ function StrategyLiveDF({ strategy, color, symbols }) {
   );
 }
 
+// ── Main export ───────────────────────────────────────────────────────────────
 export default function LiveDFTab({ symbolsCache, status }) {
   const strategies = status ? Object.entries(status) : [];
   return (
