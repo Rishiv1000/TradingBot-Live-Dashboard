@@ -20,7 +20,7 @@ done
 
 # ── Check uvicorn is available ────────────────────────────────
 if ! command -v uvicorn &>/dev/null; then
-    echo "[!] uvicorn not found. Run: pip install -r shared/setup_system/requirements.txt"
+    echo "[!] uvicorn not found. Run: pip install -r config/requirements.txt"
     exit 1
 fi
 

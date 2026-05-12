@@ -7,7 +7,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, BASE_DIR)
 
 import config
-from shared.candle_data import (
+from config.candle_data import (
     build_symbol_dataframe,
     fetch_symbol_candles,
     update_symbol_dataframe_cache,

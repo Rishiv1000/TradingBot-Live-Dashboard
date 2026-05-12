@@ -13,7 +13,7 @@ sys.path.insert(0, BASE_DIR)
 from kiteconnect import KiteConnect
 
 try:
-    from shared.terminal_capture import start_strategy_capture, stop_strategy_capture
+    from config.terminal_capture import start_strategy_capture, stop_strategy_capture
 except ImportError:
     def start_strategy_capture(name): pass
     def stop_strategy_capture(name):  pass
@@ -21,8 +21,7 @@ except ImportError:
 import config
 from engine_entry import EntryEngine
 from engine_exit  import ExitEngine
-from shared.candle_data import interval_minutes
-from shared.setup_system.setup_db import initialize_live_database
+from config.candle_data import interval_minutes
 
 
 def generate_or_load_session():
@@ -58,13 +57,12 @@ def main():
     # ── SAFETY LOCK ──────────────────────────────────────────────────────────
     if not getattr(config, "REAL_TRADING_ENABLED", False):
         print("🔒 [GREEN3] BLOCKED: REAL_TRADING_ENABLED = False in base_config.py")
-        print("🔒 [GREEN3] Set REAL_TRADING_ENABLED = True in shared/base_config.py to unlock.")
+        print("🔒 [GREEN3] Set REAL_TRADING_ENABLED = True in config/base_config.py to unlock.")
         stop_strategy_capture("GREEN3")
         return
     # ─────────────────────────────────────────────────────────────────────────
 
     try:
-        initialize_live_database(config.DB_HOST, config.DB_USER, config.DB_PASSWORD, config.DB_NAME)
         kite = generate_or_load_session()
 
         exit_engine = ExitEngine(kite)

@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-
 import pandas as pd
 
 
@@ -35,7 +34,7 @@ def last_closed_candle_time(timeframe):
 
 
 def fetch_symbol_candles(kite, token, days, timeframe):
-    to_date = last_closed_candle_time(timeframe)
+    to_date   = last_closed_candle_time(timeframe)
     from_date = to_date - timedelta(days=days)
     rows = []
 
@@ -45,7 +44,6 @@ def fetch_symbol_candles(kite, token, days, timeframe):
             if chunk:
                 rows.extend(chunk)
             break
-
         current_to = from_date + timedelta(days=100)
         chunk = kite.historical_data(token, from_date, current_to, timeframe)
         if chunk:

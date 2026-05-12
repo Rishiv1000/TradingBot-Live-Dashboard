@@ -2,10 +2,7 @@ import time
 
 
 def _verify_position(kite, symbol, exchange, expected_qty):
-    """
-    Verify Zerodha account actually holds `expected_qty` for the symbol.
-    Returns (actual_qty, ok: bool)
-    """
+    """Verify Zerodha account actually holds expected_qty for the symbol."""
     try:
         positions = kite.positions()
         all_pos = positions.get("day", []) + positions.get("net", [])
@@ -14,7 +11,6 @@ def _verify_position(kite, symbol, exchange, expected_qty):
                 actual_qty = pos["quantity"]
                 ok = (actual_qty == expected_qty)
                 return actual_qty, ok
-        # Symbol not found in positions — qty is 0
         return 0, (expected_qty == 0)
     except Exception as e:
         print(f"⚠️ Position verify failed for {symbol}: {e}")
@@ -30,8 +26,9 @@ def place_real_buy(kite, symbol, quantity, exchange, config):
         instrument = f"{exchange.upper()}:{symbol.upper()}"
         ltp = kite.ltp(instrument)[instrument]["last_price"]
 
-        # Aggressive limit — ₹0.20 above LTP, fills immediately on any small uptick
-        limit_price = round(ltp + 0.20, 2)
+        # Aggressive limit — 0.5% above LTP so it fills immediately
+        slippage = getattr(config, "BUY_SLIPPAGE", 0.5)
+        limit_price = round(ltp * (1 + slippage / 100), 1)
 
         order_id = kite.place_order(
             variety=kite.VARIETY_REGULAR,
@@ -43,9 +40,8 @@ def place_real_buy(kite, symbol, quantity, exchange, config):
             price=limit_price,
             product=kite.PRODUCT_MIS,
         )
-        print(f"✅ BUY limit order placed: {symbol} @ {limit_price} (LTP={ltp}) | order_id: {order_id}")
+        print(f"✅ BUY order placed: {symbol} @ {limit_price} (LTP={ltp}) | order_id: {order_id}")
 
-        # Verify account actually holds the position
         time.sleep(1.5)
         actual_qty, ok = _verify_position(kite, symbol, exchange, quantity)
         if ok:
@@ -68,8 +64,9 @@ def place_real_sell(kite, symbol, quantity, exchange, product, config, tag=None)
         instrument = f"{exchange.upper()}:{symbol.upper()}"
         ltp = kite.ltp(instrument)[instrument]["last_price"]
 
-        # Aggressive limit — ₹0.20 below LTP, fills immediately on any small downtick
-        limit_price = round(ltp - 0.20, 2)
+        # Aggressive limit — 0.5% below LTP so it fills immediately
+        slippage = getattr(config, "SELL_SLIPPAGE", 0.5)
+        limit_price = round(ltp * (1 - slippage / 100), 1)
 
         order_id = kite.place_order(
             variety=kite.VARIETY_REGULAR,
@@ -82,9 +79,8 @@ def place_real_sell(kite, symbol, quantity, exchange, product, config, tag=None)
             product=product,
             tag=str(tag)[:20] if tag else None,
         )
-        print(f"✅ SELL limit order placed: {symbol} @ {limit_price} (LTP={ltp}) | order_id: {order_id}")
+        print(f"✅ SELL order placed: {symbol} @ {limit_price} (LTP={ltp}) | order_id: {order_id}")
 
-        # Verify position is now closed (qty = 0)
         time.sleep(1.5)
         actual_qty, ok = _verify_position(kite, symbol, exchange, 0)
         if ok:

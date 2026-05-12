@@ -11,7 +11,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, BASE_DIR)
 
 import config
-from shared.order_manager import place_real_sell
+from config.order_manager import place_real_sell
 
 
 class ExitEngine:

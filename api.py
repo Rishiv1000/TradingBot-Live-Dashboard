@@ -15,8 +15,8 @@ from pydantic import BaseModel
 
 # ── paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR          = os.path.dirname(os.path.abspath(__file__))
-ENV_PATH          = os.path.abspath(os.path.join(BASE_DIR, "shared", ".env"))
-ACCESS_TOKEN_FILE = os.path.abspath(os.path.join(BASE_DIR, "shared", "access_token.txt"))
+ENV_PATH          = os.path.abspath(os.path.join(BASE_DIR, "config", ".env"))
+ACCESS_TOKEN_FILE = os.path.abspath(os.path.join(BASE_DIR, "config", "access_token.txt"))
 LOGS_DIR          = os.path.abspath(os.path.join(BASE_DIR, "logs"))
 
 if BASE_DIR not in sys.path:
@@ -228,7 +228,7 @@ class SymbolRequest(BaseModel):
 def _read_trading_enabled() -> bool:
     """Read REAL_TRADING_ENABLED from base_config.py by parsing the file directly."""
     try:
-        base_cfg_path = os.path.join(BASE_DIR, "shared", "base_config.py")
+        base_cfg_path = os.path.join(BASE_DIR, "config", "base_config.py")
         with open(base_cfg_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -518,57 +518,42 @@ def kill_all():
 
 @app.post("/api/setup-db")
 def setup_db():
-    """Initialize MySQL database and tables for all strategies."""
-    try:
-        from shared.setup_system.setup_db import initialize_live_database
-        success = initialize_live_database(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME)
-        if success:
-            return {"success": True, "message": f"Database '{DB_NAME}' ready."}
-        return {"success": False, "error": "Setup failed — check server logs."}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    """Create DB tables for all strategies — each strategy sets up its own table."""
+    import importlib as _il
+    errors = []
+    for strategy, meta in STRATEGIES.items():
+        try:
+            sys.path.insert(0, meta["folder"])
+            sys.modules.pop("config", None)
+            sys.modules.pop("engine_db", None)
+            _il.import_module("config")
+            engine_db = _il.import_module("engine_db")
+            engine_db.setup_table()
+        except Exception as e:
+            errors.append(f"{strategy}: {e}")
+    if errors:
+        return {"success": False, "error": "; ".join(errors)}
+    return {"success": True, "message": "All strategy tables ready."}
 
 
-@app.post("/api/set-defaults")
-def set_defaults():
-    """Reset all positions, fill missing instrument tokens, and set strategy names."""
-    try:
-        import time as _t
-        from shared.candle_data import search_kite_symbol
-        kite = get_kite()
-        if not kite:
-            return {"success": False, "error": "Kite session missing — login first"}
-
-        total_updated = 0
-        for strategy, meta in STRATEGIES.items():
-            table = meta["table"]
-            try:
-                # Reset open positions and set strategy name
-                db_exec(
-                    f"UPDATE {table} SET isExecuted=0, buyprice=NULL, buytime=NULL, "
-                    f"buy_order_id=NULL, product='MIS', strategy=%s",
-                    (strategy.upper(),)
-                )
-                # Fill missing tokens
-                rows = db_fetchall(
-                    f"SELECT id, symbol, exchange FROM {table} "
-                    f"WHERE instrument_token IS NULL OR instrument_token=0"
-                )
-                for row in rows:
-                    token = search_kite_symbol(kite, row["exchange"] or "NSE", row["symbol"])
-                    if token:
-                        db_exec(
-                            f"UPDATE {table} SET instrument_token=%s WHERE id=%s",
-                            (token, row["id"]),
-                        )
-                        total_updated += 1
-                    _t.sleep(0.35)
-            except Exception as e:
-                print(f"[set-defaults] {strategy}: {e}")
-
-        return {"success": True, "updated": total_updated}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+@app.post("/api/reset-positions")
+def reset_positions():
+    """Reset open positions for all strategies (clean live trade data)."""
+    import importlib as _il
+    errors = []
+    for strategy, meta in STRATEGIES.items():
+        try:
+            sys.path.insert(0, meta["folder"])
+            sys.modules.pop("config", None)
+            sys.modules.pop("engine_db", None)
+            _il.import_module("config")
+            engine_db = _il.import_module("engine_db")
+            engine_db.reset_positions()
+        except Exception as e:
+            errors.append(f"{strategy}: {e}")
+    if errors:
+        return {"success": False, "error": "; ".join(errors)}
+    return {"success": True, "message": "All positions reset."}
 
 
 @app.post("/api/symbols/{strategy}/bulk")

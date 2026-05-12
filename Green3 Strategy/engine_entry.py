@@ -13,8 +13,8 @@ sys.path.insert(0, BASE_DIR)
 
 import config
 from engine_symbol_data import build_green3_dataframe, fetch_runtime_symbols, update_symbol_dataframe_cache
-from shared.candle_data import interval_minutes
-from shared.order_manager import place_real_buy
+from config.candle_data import interval_minutes
+from config.order_manager import place_real_buy
 
 BOT_START_TIME = datetime.now()
 

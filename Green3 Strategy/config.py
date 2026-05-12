@@ -7,7 +7,7 @@ PROJECT_ROOT = os.path.dirname(STRATEGY_DIR)
 if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
-from shared.base_config import *
+from config.base_config import *
 
 STRATEGY_NAME = "GREEN3"
 SYMBOLS_TABLE = "symbols_green3"
