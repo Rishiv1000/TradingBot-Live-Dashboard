@@ -179,7 +179,7 @@ function StrategyLiveDF({ strategy, color, symbols }) {
             </div>
             <div>
               <div style={{ fontSize: "11px", color: "#8b949e", marginBottom: "4px" }}>
-                Rows: <strong style={{ color: "#f0f6fc" }}>{rowsToShow}</strong>
+                Rows: <strong style={{ color: "var(--text-color)" }}>{rowsToShow}</strong>
               </div>
               <input
                 type="range" min={5} max={500} step={5}

@@ -7,8 +7,8 @@ const SIDEBAR_STYLE = {
   top: 0,
   bottom: 0,
   width: "260px",
-  background: "#010409",
-  borderRight: "1px solid #30363d",
+  background: "var(--sidebar-bg)",
+  borderRight: "1px solid var(--border-color)",
   overflowY: "auto",
   padding: "16px 14px",
   zIndex: 100,
@@ -27,6 +27,8 @@ export default function Sidebar({
   lastSync,
   onRefresh,
   onSessionSaved,
+  theme,
+  onToggleTheme,
 }) {
   const [loginUrl, setLoginUrl] = useState("");
   const [showUrlModal, setShowUrlModal] = useState(false);
@@ -155,15 +157,25 @@ export default function Sidebar({
     <>
       <div style={SIDEBAR_STYLE}>
         {/* Title */}
-        <div style={{ fontSize: "16px", fontWeight: 800, color: "#f0f6fc", marginBottom: "16px" }}>
-          📡 Live Terminal
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          <div style={{ fontSize: "16px", fontWeight: 800, color: "var(--text-color)" }}>
+            📡 Live Terminal
+          </div>
+          <button 
+            onClick={onToggleTheme}
+            className="btn-secondary btn-sm"
+            style={{ padding: "4px 8px", fontSize: "14px" }}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
         </div>
 
         <hr className="divider" />
 
         {/* Kite Login */}
         <div style={{ marginBottom: "16px" }}>
-          <div style={{ fontSize: "12px", fontWeight: 700, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>
+          <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted-text)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>
             🔑 Kite Login
           </div>
           {kiteLoggedIn ? (
@@ -208,7 +220,7 @@ export default function Sidebar({
 
         {/* Strategy Control */}
         <div style={{ marginBottom: "16px" }}>
-          <div style={{ fontSize: "12px", fontWeight: 700, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "10px" }}>
+          <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted-text)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "10px" }}>
             ⚙️ Strategy Control
           </div>
 
@@ -219,7 +231,7 @@ export default function Sidebar({
             return (
               <div key={strategy} style={{ marginBottom: "14px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                  <span style={{ fontWeight: 800, color: "#f0f6fc", fontSize: "13px" }}>{strategy}</span>
+                  <span style={{ fontWeight: 800, color: "var(--text-color)", fontSize: "13px" }}>{strategy}</span>
                   <span
                     className="pill"
                     style={{
@@ -231,7 +243,7 @@ export default function Sidebar({
                     {statusLabel}
                   </span>
                 </div>
-                <div style={{ fontSize: "11px", color: "#8b949e", marginBottom: "6px" }}>
+                <div style={{ fontSize: "11px", color: "var(--muted-text)", marginBottom: "6px" }}>
                   Symbols: {info.symbol_count} &nbsp;|&nbsp; Open: {info.open_count}
                 </div>
                 <div style={{ display: "flex", gap: "4px" }}>
@@ -270,7 +282,7 @@ export default function Sidebar({
 
         {/* Setup */}
         <div style={{ marginBottom: "16px" }}>
-          <div style={{ fontSize: "12px", fontWeight: 700, color: "#8b949e", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>
+          <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted-text)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>
             🔧 Setup
           </div>
           <button className="btn-blue" style={{ width: "100%", marginBottom: "6px" }} onClick={handleSetupDb} disabled={setupDbLoading}>
@@ -280,13 +292,13 @@ export default function Sidebar({
           <button className="btn-secondary" style={{ width: "100%" }} onClick={handleSetDefaults} disabled={defaultsLoading}>
             {defaultsLoading ? "Running..." : "⚙️ Set Defaults"}
           </button>
-          <div style={{ fontSize: "11px", color: "#8b949e", marginTop: "4px" }}>Resets positions & fills tokens</div>
+          <div style={{ fontSize: "11px", color: "var(--muted-text)", marginTop: "4px" }}>Resets positions & fills tokens</div>
           {defaultsMsg && <div style={{ fontSize: "11px", marginTop: "4px", color: defaultsMsg.startsWith("✅") ? "#2ea043" : "#da3633" }}>{defaultsMsg}</div>}
         </div>
 
         <hr className="divider" />
 
-        <div style={{ fontSize: "11px", color: "#484f58", marginTop: "auto", paddingTop: "8px" }}>
+        <div style={{ fontSize: "11px", color: "var(--muted-text)", marginTop: "auto", paddingTop: "8px" }}>
           Last sync: {lastSync || "—"}
         </div>
 

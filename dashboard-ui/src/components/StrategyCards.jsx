@@ -23,8 +23,8 @@ export default function StrategyCards({ status }) {
             <div style={{ fontWeight: 700, color: "#da3633", fontSize: "14px" }}>
               Real Trading Blocked By Backend
             </div>
-            <div style={{ color: "#8b949e", fontSize: "12px", marginTop: "2px" }}>
-              Set <code style={{ background: "#161b22", padding: "1px 6px", borderRadius: "4px" }}>REAL_TRADING_ENABLED = True</code> in <code style={{ background: "#161b22", padding: "1px 6px", borderRadius: "4px" }}>shared/base_config.py</code> to unlock strategies.
+            <div style={{ color: "var(--muted-text)", fontSize: "12px", marginTop: "2px" }}>
+              Set <code style={{ background: "var(--input-bg)", padding: "1px 6px", borderRadius: "4px" }}>REAL_TRADING_ENABLED = True</code> in <code style={{ background: "var(--input-bg)", padding: "1px 6px", borderRadius: "4px" }}>shared/base_config.py</code> to unlock strategies.
             </div>
           </div>
         </div>
@@ -67,11 +67,11 @@ export default function StrategyCards({ status }) {
               </span>
               <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
                 <div>
-                  <div style={{ fontSize: "11px", color: "#8b949e", fontWeight: 600 }}>SYMBOLS</div>
+                  <div style={{ fontSize: "11px", color: "var(--muted-text)", fontWeight: 600 }}>SYMBOLS</div>
                   <div style={{ fontSize: "20px", fontWeight: 700 }}>{info.symbol_count}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "11px", color: "#8b949e", fontWeight: 600 }}>OPEN</div>
+                  <div style={{ fontSize: "11px", color: "var(--muted-text)", fontWeight: 600 }}>OPEN</div>
                   <div style={{ fontSize: "20px", fontWeight: 700 }}>{info.open_count}</div>
                 </div>
               </div>

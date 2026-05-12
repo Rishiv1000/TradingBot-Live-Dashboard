@@ -27,6 +27,7 @@ export default function App() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5);
   const [lastSync, setLastSync]       = useState("");
+  const [theme, setTheme]             = useState(localStorage.getItem('theme') || 'dark');
   const [isConnected, setIsConnected] = useState(false);
 
   // ── symbols cache — fetched once, updated on add/delete ───────────────────
@@ -47,6 +48,15 @@ export default function App() {
   }, []);
 
   // ── fetch kite login status — on mount with retry, and after session save ──
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  }, []);
+
   const fetchKiteStatus = useCallback(async () => {
     try {
       const res = await api.get("/api/kite/status");
@@ -139,11 +149,13 @@ export default function App() {
         lastSync={lastSync}
         onRefresh={handleRefresh}
         onSessionSaved={handleSessionSaved}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       <div style={{ marginLeft: "260px", flex: 1, padding: "24px 28px", minWidth: 0 }}>
         <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px" }}>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#f0f6fc", margin: 0 }}>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-color)", margin: 0 }}>
             📡 Multi-Strategy Live Terminal
           </h1>
           <div style={{ 
