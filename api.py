@@ -546,6 +546,10 @@ def load_strategy_module(folder, module_name):
     sys.modules.pop(module_name, None)
     sys.modules.pop("st_config", None)
     sys.modules.pop("config", None)
+    # Clear submodules of the shared 'config' package
+    for m in list(sys.modules.keys()):
+        if m.startswith("config."):
+            sys.modules.pop(m, None)
     
     spec = _iu.spec_from_file_location(module_name, file_path)
     module = _iu.module_from_spec(spec)
