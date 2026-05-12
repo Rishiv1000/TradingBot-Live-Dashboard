@@ -10,7 +10,7 @@ from kiteconnect import KiteTicker
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, BASE_DIR)
 
-import config
+import st_config as config
 from config.order_manager import place_real_sell
 
 

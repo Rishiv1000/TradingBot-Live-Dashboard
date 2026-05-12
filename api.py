@@ -434,6 +434,26 @@ def clear_terminal(strategy: str):
     except Exception:
         pass
     return {"success": True}
+@app.get("/api/logs/backend")
+def get_backend_logs():
+    log_path = os.path.join(LOGS_DIR, "api.log")
+    if not os.path.exists(log_path): return {"lines": "No backend log found."}
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        return {"lines": "".join(lines[-200:]) or "Log is empty."}
+    except Exception as e: return {"lines": f"Error: {e}"}
+
+@app.get("/api/logs/frontend")
+def get_frontend_logs():
+    log_path = os.path.join(LOGS_DIR, "vite.log")
+    if not os.path.exists(log_path): return {"lines": "No frontend log found."}
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        return {"lines": "".join(lines[-200:]) or "Log is empty."}
+    except Exception as e: return {"lines": f"Error: {e}"}
+
 
 
 @app.post("/api/strategy/{strategy}/start")
@@ -526,7 +546,7 @@ def setup_db():
             sys.path.insert(0, meta["folder"])
             sys.modules.pop("config", None)
             sys.modules.pop("engine_db", None)
-            _il.import_module("config")
+            _il.import_module("st_config")
             engine_db = _il.import_module("engine_db")
             engine_db.setup_table()
         except Exception as e:
@@ -546,7 +566,7 @@ def reset_positions():
             sys.path.insert(0, meta["folder"])
             sys.modules.pop("config", None)
             sys.modules.pop("engine_db", None)
-            _il.import_module("config")
+            _il.import_module("st_config")
             engine_db = _il.import_module("engine_db")
             engine_db.reset_positions()
         except Exception as e:

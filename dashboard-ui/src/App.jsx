@@ -7,6 +7,7 @@ import LiveDFTab from "./components/tabs/LiveDFTab";
 import PositionsTab from "./components/tabs/PositionsTab";
 import HistoryTab from "./components/tabs/HistoryTab";
 import TerminalTab from "./components/tabs/TerminalTab";
+import SystemLogsTab from "./components/tabs/SystemLogsTab";
 
 const TABS = [
  
@@ -14,7 +15,8 @@ const TABS = [
   { id: "positions", label: "📂 Positions" },
   { id: "history",   label: "📜 History" },
   { id: "terminal",  label: "🖥️ Terminal" },
-   { id: "symbols",   label: "📋 Symbols" },
+  { id: "symbols",   label: "📋 Symbols" },
+  { id: "syslogs",   label: "⚙️ System Logs" },
 ];
 
 export default function App() {
@@ -25,6 +27,7 @@ export default function App() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5);
   const [lastSync, setLastSync]       = useState("");
+  const [isConnected, setIsConnected] = useState(false);
 
   // ── symbols cache — fetched once, updated on add/delete ───────────────────
   // { GREEN: [...], RSI: [...] }
@@ -36,9 +39,10 @@ export default function App() {
     try {
       const res = await api.get("/api/status");
       setStatus(res.data);
+      setIsConnected(true);
       setLastSync(new Date().toLocaleTimeString());
     } catch {
-      // API not running yet
+      setIsConnected(false);
     }
   }, []);
 
@@ -138,10 +142,52 @@ export default function App() {
       />
 
       <div style={{ marginLeft: "260px", flex: 1, padding: "24px 28px", minWidth: 0 }}>
-        <div style={{ marginBottom: "20px" }}>
+        <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px" }}>
           <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#f0f6fc", margin: 0 }}>
             📡 Multi-Strategy Live Terminal
           </h1>
+          <div style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "6px",
+            padding: "4px 10px",
+            borderRadius: "12px",
+            fontSize: "12px",
+            fontWeight: 600,
+            background: isConnected ? "#2ea04322" : "#da363322",
+            color: isConnected ? "#2ea043" : "#da3633",
+            border: `1px solid ${isConnected ? "#2ea043" : "#da3633"}`,
+          }}>
+            <div style={{ 
+              width: "8px", 
+              height: "8px", 
+              borderRadius: "50%", 
+              background: isConnected ? "#2ea043" : "#da3633",
+              animation: isConnected ? "pulse 2s infinite" : "none"
+            }}></div>
+            {isConnected ? "Backend Connected" : "Backend Not Connected"}
+          </div>
+          <div style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "6px",
+            padding: "4px 10px",
+            borderRadius: "12px",
+            fontSize: "12px",
+            fontWeight: 600,
+            background: kiteLoggedIn ? "#1f6feb22" : "#da363322",
+            color: kiteLoggedIn ? "#1f6feb" : "#da3633",
+            border: `1px solid ${kiteLoggedIn ? "#1f6feb" : "#da3633"}`,
+          }}>
+            <div style={{ 
+              width: "8px", 
+              height: "8px", 
+              borderRadius: "50%", 
+              background: kiteLoggedIn ? "#1f6feb" : "#da3633",
+              animation: kiteLoggedIn ? "pulse 2s infinite" : "none"
+            }}></div>
+            {kiteLoggedIn ? "Kite Connected" : "Kite Not Connected"}
+          </div>
         </div>
 
         <StrategyCards status={status} />
@@ -172,8 +218,11 @@ export default function App() {
         <div style={{ display: activeTab === "terminal"  ? "block" : "none" }}>
           <TerminalTab key="terminal" status={status} />
         </div>
-         <div style={{ display: activeTab === "symbols"   ? "block" : "none" }}>
+        <div style={{ display: activeTab === "symbols"   ? "block" : "none" }}>
           <SymbolsTab key="symbols" symbolsCache={symbolsCache} status={status} onRefreshSymbols={refreshSymbols} />
+        </div>
+        <div style={{ display: activeTab === "syslogs"   ? "block" : "none" }}>
+          <SystemLogsTab key="syslogs" />
         </div>
       </div>
     </div>

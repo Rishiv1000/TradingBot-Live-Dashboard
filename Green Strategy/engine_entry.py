@@ -11,7 +11,7 @@ import pandas as pd
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, BASE_DIR)
 
-import config
+import st_config as config
 from engine_symbol_data import build_green_dataframe, fetch_runtime_symbols, update_symbol_dataframe_cache
 from config.candle_data import interval_minutes
 from config.order_manager import place_real_buy

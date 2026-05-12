@@ -18,7 +18,7 @@ except ImportError:
     def start_strategy_capture(name): pass
     def stop_strategy_capture(name):  pass
 
-import config
+import st_config as config
 from engine_entry import EntryEngine
 from engine_exit  import ExitEngine
 from config.candle_data import interval_minutes
