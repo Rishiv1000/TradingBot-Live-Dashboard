@@ -28,16 +28,23 @@ fi
 SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 [ -z "$SERVER_IP" ] && SERVER_IP="localhost"
 
+# ── Extract Ports from base_config.py ─────────────────────────
+DASHBOARD_PORT=$(python -c "import sys; sys.path.insert(0, '.'); from config.base_config import DASHBOARD_PORT; print(DASHBOARD_PORT)")
+API_PORT=$(python -c "import sys; sys.path.insert(0, '.'); from config.base_config import API_PORT; print(API_PORT)")
+
+[ -z "$DASHBOARD_PORT" ] && DASHBOARD_PORT=5173
+[ -z "$API_PORT" ] && API_PORT=8000
+
 # ── Start FastAPI backend ─────────────────────────────────────
-echo "[*] Starting FastAPI backend on port 8000..."
-nohup uvicorn api:app --host 0.0.0.0 --port 8000 --reload \
+echo "[*] Starting FastAPI backend on port $API_PORT..."
+nohup uvicorn api:app --host 0.0.0.0 --port $API_PORT --reload \
     > "$BASE_DIR/logs/api.log" 2>&1 &
 UVICORN_PID=$!
 
 # ── Start Vite frontend ───────────────────────────────────────
-echo "[*] Starting Vite dashboard on port 5173..."
+echo "[*] Starting Vite dashboard on port $DASHBOARD_PORT..."
 cd "$BASE_DIR/dashboard-ui"
-nohup npm run dev \
+VITE_PORT=$DASHBOARD_PORT VITE_API_TARGET="http://127.0.0.1:$API_PORT" nohup npm run dev \
     > "$BASE_DIR/logs/vite.log" 2>&1 &
 VITE_PID=$!
 
@@ -53,8 +60,8 @@ echo "╔═══════════════════════�
 echo "║        📈 Live Trading Dashboard — Started           ║"
 echo "╠══════════════════════════════════════════════════════╣"
 echo "║                                                      ║"
-printf "║  🌐 Dashboard  :  http://%-27s║\n" "$SERVER_IP:5173  "
-printf "║  ⚙️  API        :  http://%-27s║\n" "$SERVER_IP:8000  "
+printf "║  🌐 Dashboard  :  http://%-27s║\n" "$SERVER_IP:$DASHBOARD_PORT  "
+printf "║  ⚙️  API        :  http://%-27s║\n" "$SERVER_IP:$API_PORT  "
 echo "║                                                      ║"
 echo "║  ⚠️  WARNING: REAL TRADING IS ACTIVE                 ║"
 echo "║                                                      ║"

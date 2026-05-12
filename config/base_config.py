@@ -14,6 +14,10 @@ API_KEY           = os.getenv("KITE_API_KEY")
 API_SECRET        = os.getenv("KITE_API_SECRET")
 ACCESS_TOKEN_FILE = os.path.join(CONFIG_DIR, "access_token.txt")
 
+# --- [DASHBOARD & API PORTS] ---
+DASHBOARD_PORT = 5173
+API_PORT       = 8000
+
 # --- [DATABASE CONFIG] ---
 DB_HOST     = os.getenv("DB_HOST", "localhost")
 DB_USER     = os.getenv("DB_USER", "root")
