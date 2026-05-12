@@ -536,6 +536,23 @@ def kill_all():
     return {"success": True}
 
 
+def load_strategy_module(folder, module_name):
+    import importlib.util as _iu
+    file_path = os.path.join(folder, f"{module_name}.py")
+    if not os.path.exists(file_path):
+        raise ImportError(f"File not found: {file_path}")
+    
+    # Clear previous versions from sys.modules to avoid conflicts
+    sys.modules.pop(module_name, None)
+    sys.modules.pop("st_config", None)
+    sys.modules.pop("config", None)
+    
+    spec = _iu.spec_from_file_location(module_name, file_path)
+    module = _iu.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
 @app.post("/api/setup-db")
 def setup_db():
     """Create DB tables for all strategies — each strategy sets up its own table."""
@@ -543,11 +560,7 @@ def setup_db():
     errors = []
     for strategy, meta in STRATEGIES.items():
         try:
-            sys.path.insert(0, meta["folder"])
-            sys.modules.pop("config", None)
-            sys.modules.pop("engine_db", None)
-            _il.import_module("st_config")
-            engine_db = _il.import_module("engine_db")
+            engine_db = load_strategy_module(meta["folder"], "engine_db")
             engine_db.setup_table()
         except Exception as e:
             errors.append(f"{strategy}: {e}")
@@ -563,11 +576,7 @@ def reset_positions():
     errors = []
     for strategy, meta in STRATEGIES.items():
         try:
-            sys.path.insert(0, meta["folder"])
-            sys.modules.pop("config", None)
-            sys.modules.pop("engine_db", None)
-            _il.import_module("st_config")
-            engine_db = _il.import_module("engine_db")
+            engine_db = load_strategy_module(meta["folder"], "engine_db")
             engine_db.reset_positions()
         except Exception as e:
             errors.append(f"{strategy}: {e}")
