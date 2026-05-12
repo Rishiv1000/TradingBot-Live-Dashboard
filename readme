@@ -4,6 +4,7 @@ REAL_TRADING_ENABLED = False in base_config file
 
 Strategy 1 → 2 Green candles → Buy → Profit/Loss Exit
 Strategy 2 → 3 Green candles → Buy → Profit/Loss Exit
+Strategy 3 -> EMA Crossover -> Buy → Profit/Loss Exit
 ______________________________________________________
 
 
