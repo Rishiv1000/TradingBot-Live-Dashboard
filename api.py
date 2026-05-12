@@ -542,7 +542,17 @@ def load_strategy_module(folder, module_name):
     if not os.path.exists(file_path):
         raise ImportError(f"File not found: {file_path}")
     
-    # Clear previous versions from sys.modules to avoid conflicts
+    # Clean sys.path to avoid picking up 'config' from other projects
+    project_root = os.path.dirname(folder)
+    for p in list(sys.path):
+        if "Project_" in p:
+            sys.path.remove(p)
+    
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+
     sys.modules.pop(module_name, None)
     sys.modules.pop("st_config", None)
     sys.modules.pop("config", None)
