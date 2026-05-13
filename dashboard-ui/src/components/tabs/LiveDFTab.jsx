@@ -17,21 +17,21 @@ function useNextCandleCountdown() {
 // ── Candlestick chart using lightweight-charts ────────────────────────────────
 function CandleChart({ data, columns, color }) {
   const containerRef = useRef(null);
-  const chartRef     = useRef(null);
-  const seriesRef    = useRef(null);
-  const ema9Ref      = useRef(null);
-  const ema20Ref     = useRef(null);
+  const chartRef = useRef(null);
+  const seriesRef = useRef(null);
+  const ema9Ref = useRef(null);
+  const ema20Ref = useRef(null);
 
   // Build chart once on mount
   useEffect(() => {
     if (!containerRef.current) return;
 
     const chart = createChart(containerRef.current, {
-      width:  containerRef.current.clientWidth,
+      width: containerRef.current.clientWidth,
       height: 320,
       layout: {
         background: { color: "#0d1117" },
-        textColor:  "#8b949e",
+        textColor: "#8b949e",
       },
       grid: {
         vertLines: { color: "#21262d" },
@@ -40,28 +40,28 @@ function CandleChart({ data, columns, color }) {
       crosshair: { mode: 1 },
       rightPriceScale: { borderColor: "#30363d" },
       timeScale: {
-        borderColor:     "#30363d",
-        timeVisible:     true,
-        secondsVisible:  false,
+        borderColor: "#30363d",
+        timeVisible: true,
+        secondsVisible: false,
       },
     });
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor:        color || "#2ea043",
-      downColor:      "#da3633",
-      borderUpColor:  color || "#2ea043",
-      borderDownColor:"#da3633",
-      wickUpColor:    color || "#2ea043",
-      wickDownColor:  "#da3633",
+      upColor: color || "#2ea043",
+      downColor: "#da3633",
+      borderUpColor: color || "#2ea043",
+      borderDownColor: "#da3633",
+      wickUpColor: color || "#2ea043",
+      wickDownColor: "#da3633",
     });
 
     const ema9 = chart.addLineSeries({ color: "#2196f3", lineWidth: 2, title: "EMA 9" });
     const ema20 = chart.addLineSeries({ color: "#ff9800", lineWidth: 2, title: "EMA 20" });
 
-    chartRef.current  = chart;
+    chartRef.current = chart;
     seriesRef.current = series;
-    ema9Ref.current   = ema9;
-    ema20Ref.current  = ema20;
+    ema9Ref.current = ema9;
+    ema20Ref.current = ema20;
 
     // Resize chart when window resizes
     const onResize = () => {
@@ -82,10 +82,10 @@ function CandleChart({ data, columns, color }) {
 
     // Map df columns to lightweight-charts format
     // Expects: date, open, high, low, close columns
-    const dateCol  = columns.find((c) => c === "date");
-    const openCol  = columns.find((c) => c === "open");
-    const highCol  = columns.find((c) => c === "high");
-    const lowCol   = columns.find((c) => c === "low");
+    const dateCol = columns.find((c) => c === "date");
+    const openCol = columns.find((c) => c === "open");
+    const highCol = columns.find((c) => c === "high");
+    const lowCol = columns.find((c) => c === "low");
     const closeCol = columns.find((c) => c === "close");
 
     if (!dateCol || !openCol || !highCol || !lowCol || !closeCol) return;
@@ -95,10 +95,10 @@ function CandleChart({ data, columns, color }) {
         // Convert "2024-01-15 09:15:00" → Unix timestamp (seconds)
         const ts = Math.floor(new Date(row[dateCol]).getTime() / 1000);
         return {
-          time:  ts,
-          open:  parseFloat(row[openCol]),
-          high:  parseFloat(row[highCol]),
-          low:   parseFloat(row[lowCol]),
+          time: ts,
+          open: parseFloat(row[openCol]),
+          high: parseFloat(row[highCol]),
+          low: parseFloat(row[lowCol]),
           close: parseFloat(row[closeCol]),
         };
       })
@@ -117,7 +117,7 @@ function CandleChart({ data, columns, color }) {
       const ema9Data = data.map((row) => ({
         time: Math.floor(new Date(row[dateCol]).getTime() / 1000),
         value: parseFloat(row[ema9Col]),
-      })).filter(d => !isNaN(d.value)).sort((a,b) => a.time - b.time);
+      })).filter(d => !isNaN(d.value)).sort((a, b) => a.time - b.time);
       ema9Ref.current.setData(ema9Data);
     }
 
@@ -127,7 +127,7 @@ function CandleChart({ data, columns, color }) {
       const ema20Data = data.map((row) => ({
         time: Math.floor(new Date(row[dateCol]).getTime() / 1000),
         value: parseFloat(row[ema20Col]),
-      })).filter(d => !isNaN(d.value)).sort((a,b) => a.time - b.time);
+      })).filter(d => !isNaN(d.value)).sort((a, b) => a.time - b.time);
       ema20Ref.current.setData(ema20Data);
     }
 
@@ -144,9 +144,13 @@ function CandleChart({ data, columns, color }) {
         markers.push({ time, position: "aboveBar", color: "#da3633", shape: "arrowDown", text: "SELL" });
       }
     });
-    
-    if (markers.length > 0) {
-      seriesRef.current.setMarkers(markers.sort((a,b) => a.time - b.time));
+
+    if (markers.length > 0 && seriesRef.current && typeof seriesRef.current.setMarkers === 'function') {
+      try {
+        seriesRef.current.setMarkers(markers.sort((a, b) => a.time - b.time));
+      } catch (err) {
+        console.error("Failed to set markers:", err);
+      }
     }
 
     chartRef.current.timeScale().fitContent();
@@ -156,11 +160,11 @@ function CandleChart({ data, columns, color }) {
     <div
       ref={containerRef}
       style={{
-        width:        "100%",
-        height:       "320px",
+        width: "100%",
+        height: "320px",
         borderRadius: "8px",
-        overflow:     "hidden",
-        border:       "1px solid #21262d",
+        overflow: "hidden",
+        border: "1px solid #21262d",
         marginBottom: "16px",
       }}
     />
@@ -171,10 +175,10 @@ function CandleChart({ data, columns, color }) {
 function StrategyLiveDF({ strategy, color, symbols }) {
   const symNames = (symbols || []).map((s) => s.symbol);
   const [selectedSymbol, setSelectedSymbol] = useState(symNames[0] || "");
-  const [dfData,    setDfData]    = useState(null);
-  const [loading,   setLoading]   = useState(false);
+  const [dfData, setDfData] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [rowsToShow, setRowsToShow] = useState(20);
-  const [showChart,  setShowChart]  = useState(true);
+  const [showChart, setShowChart] = useState(true);
   const countdown = useNextCandleCountdown();
 
   // Keep selected symbol valid when symbol list changes
@@ -188,8 +192,17 @@ function StrategyLiveDF({ strategy, color, symbols }) {
     if (!selectedSymbol) return;
     setLoading(true);
     api.get(`/api/df/${strategy}/${selectedSymbol}`)
-      .then((res) => setDfData(res.data))
-      .catch(() => setDfData(null))
+      .then((res) => {
+        if (res.data && res.data.columns && res.data.data) {
+          setDfData(res.data);
+        } else {
+          setDfData(null);
+        }
+      })
+      .catch((err) => {
+        console.error("Fetch Live DF error:", err);
+        setDfData(null);
+      })
       .finally(() => setLoading(false));
   }, [strategy, selectedSymbol]);
 
@@ -282,13 +295,19 @@ function StrategyLiveDF({ strategy, color, symbols }) {
                 </div>
               </div>
 
-              {/* Candlestick chart */}
-              {showChart && dfData.data && dfData.data.length > 0 && (
-                <CandleChart
-                  data={dfData.data}
-                  columns={dfData.columns}
-                  color={color}
-                />
+              {/* Candlestick chart — df data directly, no external API */}
+              {showChart && (
+                dfData && dfData.data && dfData.data.length > 0 ? (
+                  <CandleChart
+                    data={dfData.data}
+                    columns={dfData.columns}
+                    color={color}
+                  />
+                ) : (
+                  <div style={{ height: "320px", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #21262d", borderRadius: "8px", color: "#8b949e", marginBottom: "16px" }}>
+                    ⏳ Waiting for candle data...
+                  </div>
+                )
               )}
 
               {/* Data table */}

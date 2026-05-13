@@ -10,24 +10,24 @@ import TerminalTab from "./components/tabs/TerminalTab";
 import SystemLogsTab from "./components/tabs/SystemLogsTab";
 
 const TABS = [
- 
-  { id: "livedf",    label: "📊 Live DF" },
+
+  { id: "livedf", label: "📊 Live DF" },
   { id: "positions", label: "📂 Positions" },
-  { id: "history",   label: "📜 History" },
-  { id: "terminal",  label: "🖥️ Terminal" },
-  { id: "symbols",   label: "📋 Symbols" },
-  { id: "syslogs",   label: "⚙️ System Logs" },
+  { id: "history", label: "📜 History" },
+  { id: "terminal", label: "🖥️ Terminal" },
+  { id: "symbols", label: "📋 Symbols" },
+  { id: "syslogs", label: "⚙️ System Logs" },
 ];
 
 export default function App() {
   // ── core state ──────────────────────────────────────────────────────────────
-  const [status, setStatus]           = useState(null);
+  const [status, setStatus] = useState(null);
   const [kiteLoggedIn, setKiteLoggedIn] = useState(false);
-  const [activeTab, setActiveTab]     = useState("livedf");
+  const [activeTab, setActiveTab] = useState("livedf");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5);
-  const [lastSync, setLastSync]       = useState("");
-  const [theme, setTheme]             = useState(localStorage.getItem('theme') || 'dark');
+  const [lastSync, setLastSync] = useState("");
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
   const [isConnected, setIsConnected] = useState(false);
 
   // ── symbols cache — fetched once, updated on add/delete ───────────────────
@@ -158,9 +158,9 @@ export default function App() {
           <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-color)", margin: 0 }}>
             📡 Multi-Strategy Live Terminal
           </h1>
-          <div style={{ 
-            display: "flex", 
-            alignItems: "center", 
+          <div style={{
+            display: "flex",
+            alignItems: "center",
             gap: "6px",
             padding: "4px 10px",
             borderRadius: "12px",
@@ -170,18 +170,18 @@ export default function App() {
             color: isConnected ? "#2ea043" : "#da3633",
             border: `1px solid ${isConnected ? "#2ea043" : "#da3633"}`,
           }}>
-            <div style={{ 
-              width: "8px", 
-              height: "8px", 
-              borderRadius: "50%", 
+            <div style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
               background: isConnected ? "#2ea043" : "#da3633",
               animation: isConnected ? "pulse 2s infinite" : "none"
             }}></div>
             {isConnected ? "Backend Connected" : "Backend Not Connected"}
           </div>
-          <div style={{ 
-            display: "flex", 
-            alignItems: "center", 
+          <div style={{
+            display: "flex",
+            alignItems: "center",
             gap: "6px",
             padding: "4px 10px",
             borderRadius: "12px",
@@ -191,10 +191,10 @@ export default function App() {
             color: kiteLoggedIn ? "#1f6feb" : "#da3633",
             border: `1px solid ${kiteLoggedIn ? "#1f6feb" : "#da3633"}`,
           }}>
-            <div style={{ 
-              width: "8px", 
-              height: "8px", 
-              borderRadius: "50%", 
+            <div style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
               background: kiteLoggedIn ? "#1f6feb" : "#da3633",
               animation: kiteLoggedIn ? "pulse 2s infinite" : "none"
             }}></div>
@@ -217,23 +217,23 @@ export default function App() {
         </div>
 
         {/* All tabs always mounted (display:none when inactive) so state is preserved */}
-       
-        <div style={{ display: activeTab === "livedf"    ? "block" : "none" }}>
+
+        <div style={{ display: activeTab === "livedf" ? "block" : "none" }}>
           <LiveDFTab key="livedf" symbolsCache={symbolsCache} status={status} />
         </div>
         <div style={{ display: activeTab === "positions" ? "block" : "none" }}>
           <PositionsTab key="positions" />
         </div>
-        <div style={{ display: activeTab === "history"   ? "block" : "none" }}>
+        <div style={{ display: activeTab === "history" ? "block" : "none" }}>
           <HistoryTab key="history" />
         </div>
-        <div style={{ display: activeTab === "terminal"  ? "block" : "none" }}>
+        <div style={{ display: activeTab === "terminal" ? "block" : "none" }}>
           <TerminalTab key="terminal" status={status} />
         </div>
-        <div style={{ display: activeTab === "symbols"   ? "block" : "none" }}>
+        <div style={{ display: activeTab === "symbols" ? "block" : "none" }}>
           <SymbolsTab key="symbols" symbolsCache={symbolsCache} status={status} onRefreshSymbols={refreshSymbols} />
         </div>
-        <div style={{ display: activeTab === "syslogs"   ? "block" : "none" }}>
+        <div style={{ display: activeTab === "syslogs" ? "block" : "none" }}>
           <SystemLogsTab key="syslogs" />
         </div>
       </div>

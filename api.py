@@ -36,7 +36,7 @@ DB_HOST     = _env("DB_HOST", "localhost")
 DB_USER     = _env("DB_USER", "root")
 DB_PASSWORD = _env("DB_PASSWORD", "")
 DB_NAME     = _env("DB_NAME", "trading_bot_live")
-DB_POOL_SIZE = int(_env("DB_POOL_SIZE", "5"))
+DB_POOL_SIZE = int(_env("DB_POOL_SIZE", "32"))
 
 STRATEGIES = {
     "GREEN": {
@@ -89,30 +89,27 @@ def _db():
 
 
 def db_fetchall(query: str, params=()):
+    conn = None
     try:
         conn = _db()
-    except mysql.connector.errors.PoolError:
-        raise HTTPException(status_code=503, detail="Database pool exhausted — try again shortly")
-    cursor = conn.cursor(dictionary=True)
-    try:
+        cursor = conn.cursor(dictionary=True)
         cursor.execute(query, params)
         return cursor.fetchall()
     finally:
-        # Returns connection to pool, does NOT close the underlying TCP socket
-        conn.close()
+        if conn:
+            conn.close()
 
 
 def db_exec(query: str, params=()):
+    conn = None
     try:
         conn = _db()
-    except mysql.connector.errors.PoolError:
-        raise HTTPException(status_code=503, detail="Database pool exhausted — try again shortly")
-    cursor = conn.cursor()
-    try:
+        cursor = conn.cursor()
         cursor.execute(query, params)
         conn.commit()
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 
 def db_scalar(query: str, params=()):
@@ -468,6 +465,9 @@ def start_strategy(strategy: str):
     if strategy not in STRATEGIES:
         raise HTTPException(status_code=404, detail="Unknown strategy")
     meta = STRATEGIES[strategy]
+    # Ensure logs directory exists
+    os.makedirs(LOGS_DIR, exist_ok=True)
+
     if is_running(strategy):
         return {"success": True, "message": "Already running"}
     kwargs = {}
