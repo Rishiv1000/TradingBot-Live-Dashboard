@@ -19,6 +19,8 @@ function CandleChart({ data, columns, color }) {
   const containerRef = useRef(null);
   const chartRef     = useRef(null);
   const seriesRef    = useRef(null);
+  const ema9Ref      = useRef(null);
+  const ema20Ref     = useRef(null);
 
   // Build chart once on mount
   useEffect(() => {
@@ -53,8 +55,13 @@ function CandleChart({ data, columns, color }) {
       wickDownColor:  "#da3633",
     });
 
+    const ema9 = chart.addLineSeries({ color: "#2196f3", lineWidth: 2, title: "EMA 9" });
+    const ema20 = chart.addLineSeries({ color: "#ff9800", lineWidth: 2, title: "EMA 20" });
+
     chartRef.current  = chart;
     seriesRef.current = series;
+    ema9Ref.current   = ema9;
+    ema20Ref.current  = ema20;
 
     // Resize chart when window resizes
     const onResize = () => {
@@ -103,6 +110,45 @@ function CandleChart({ data, columns, color }) {
     if (candles.length === 0) return;
 
     seriesRef.current.setData(candles);
+
+    // EMA 9 data
+    const ema9Col = columns.find((c) => c === "EMA_9");
+    if (ema9Col) {
+      const ema9Data = data.map((row) => ({
+        time: Math.floor(new Date(row[dateCol]).getTime() / 1000),
+        value: parseFloat(row[ema9Col]),
+      })).filter(d => !isNaN(d.value)).sort((a,b) => a.time - b.time);
+      ema9Ref.current.setData(ema9Data);
+    }
+
+    // EMA 20 data
+    const ema20Col = columns.find((c) => c === "EMA_20");
+    if (ema20Col) {
+      const ema20Data = data.map((row) => ({
+        time: Math.floor(new Date(row[dateCol]).getTime() / 1000),
+        value: parseFloat(row[ema20Col]),
+      })).filter(d => !isNaN(d.value)).sort((a,b) => a.time - b.time);
+      ema20Ref.current.setData(ema20Data);
+    }
+
+    // Markers for Crossover
+    const crossUpCol = columns.find((c) => c === "cross_up");
+    const crossDownCol = columns.find((c) => c === "cross_down");
+    const markers = [];
+
+    data.forEach((row) => {
+      const time = Math.floor(new Date(row[dateCol]).getTime() / 1000);
+      if (crossUpCol && row[crossUpCol] === 1) {
+        markers.push({ time, position: "belowBar", color: "#2ea043", shape: "arrowUp", text: "BUY" });
+      } else if (crossDownCol && row[crossDownCol] === 1) {
+        markers.push({ time, position: "aboveBar", color: "#da3633", shape: "arrowDown", text: "SELL" });
+      }
+    });
+    
+    if (markers.length > 0) {
+      seriesRef.current.setMarkers(markers.sort((a,b) => a.time - b.time));
+    }
+
     chartRef.current.timeScale().fitContent();
   }, [data, columns]);
 

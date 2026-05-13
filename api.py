@@ -51,6 +51,12 @@ STRATEGIES = {
         "table":  "symbols_green3",
         "color":  "#58a6ff",
     },
+    "EMA": {
+        "folder": os.path.abspath(os.path.join(BASE_DIR, "EMA_Strategy")),
+        "runner": os.path.abspath(os.path.join(BASE_DIR, "EMA_Strategy", "main_runner.py")),
+        "table":  "ema_symbols_live",
+        "color":  "#ff9800",
+    },
 }
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────

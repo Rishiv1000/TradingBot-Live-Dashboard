@@ -60,13 +60,6 @@ def fetch_runtime_symbols(kite):
     return _symbol_cache
 
 
-def calculate_candle_color(df):
-    df["candle_color"] = "DOJI"
-    df.loc[df["close"] > df["open"], "candle_color"] = "GREEN"
-    df.loc[df["close"] < df["open"], "candle_color"] = "RED"
-    return df
-
-
 def build_green_dataframe(kite, token):
     records = fetch_symbol_candles(
         kite,
@@ -75,4 +68,4 @@ def build_green_dataframe(kite, token):
         timeframe=getattr(config, "TIMEFRAME", "minute"),
     )
     df = build_symbol_dataframe(records)
-    return calculate_candle_color(df)
+    return df 

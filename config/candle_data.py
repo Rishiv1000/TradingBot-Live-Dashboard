@@ -52,6 +52,13 @@ def fetch_symbol_candles(kite, token, days, timeframe):
 
     return rows
 
+def calculate_candle_color(df):
+    if df.empty: return df
+    df["candle_color"] = "DOJI"
+    df.loc[df["close"] > df["open"], "candle_color"] = "GREEN"
+    df.loc[df["close"] < df["open"], "candle_color"] = "RED"
+    return df
+
 
 def build_symbol_dataframe(records):
     if not records:
@@ -59,6 +66,7 @@ def build_symbol_dataframe(records):
     df = pd.DataFrame(records)
     df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_convert("Asia/Kolkata").dt.tz_localize(None)
     df = df.sort_values("date").drop_duplicates(subset=["date"], keep="last")
+    df = calculate_candle_color(df)
     return df
 
 
