@@ -13,6 +13,7 @@ load_dotenv(env_path)
 API_KEY           = os.getenv("KITE_API_KEY")
 API_SECRET        = os.getenv("KITE_API_SECRET")
 ACCESS_TOKEN_FILE = os.path.join(CONFIG_DIR, "access_token.txt")
+LOGS_DIR          = os.path.join(PROJECT_ROOT, "logs")
 
 # --- [DASHBOARD & API PORTS] ---
 DASHBOARD_PORT = 5173
@@ -23,6 +24,7 @@ DB_HOST     = os.getenv("DB_HOST", "localhost")
 DB_USER     = os.getenv("DB_USER", "root")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME     = os.getenv("DB_NAME", "trading_bot_live")
+DB_POOL_SIZE = 64
 
 # --- [COMMON TRADING SETTINGS] ---
 DEFAULT_QTY          = 1

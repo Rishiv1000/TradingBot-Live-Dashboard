@@ -55,9 +55,10 @@ function CandleChart({ data, columns, color }) {
       wickDownColor: "#da3633",
       localization: {
         timeFormatter: (time) => {
+          // Use a simple formatter that doesn't shift based on browser TZ
           const date = new Date(time * 1000);
-          const hours = String(date.getHours()).padStart(2, '0');
-          const minutes = String(date.getMinutes()).padStart(2, '0');
+          const hours = String(date.getUTCHours()).padStart(2, '0');
+          const minutes = String(date.getUTCMinutes()).padStart(2, '0');
           return `${hours}:${minutes}`;
         },
       },
@@ -100,9 +101,11 @@ function CandleChart({ data, columns, color }) {
 
     const parseLocalTime = (dateStr) => {
       if (!dateStr) return null;
-      // Force local parsing by replacing 'T' with space and removing timezone suffixes
+      // Force "As-Is" parsing by treating the string as UTC
+      // This prevents the browser from shifting the time based on its local TZ
       const cleanStr = dateStr.replace('T', ' ').split('.')[0].split('+')[0].split('Z')[0];
-      return Math.floor(new Date(cleanStr).getTime() / 1000);
+      const d = new Date(cleanStr + "Z"); // Add 'Z' to force UTC interpretation of the string
+      return Math.floor(d.getTime() / 1000);
     };
 
     const candles = data
@@ -193,7 +196,7 @@ function StrategyLiveDF({ strategy, color, symbols }) {
   const [dfData, setDfData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [rowsToShow, setRowsToShow] = useState(20);
-  const [showChart, setShowChart] = useState(true);
+  const [showChart, setShowChart] = useState(false);
   const countdown = useNextCandleCountdown();
 
   // Keep selected symbol valid when symbol list changes
@@ -224,10 +227,7 @@ function StrategyLiveDF({ strategy, color, symbols }) {
   // Fetch on symbol change
   useEffect(() => { fetchDF(); }, [fetchDF]);
 
-  // Auto-refresh when countdown hits 1 (candle just closed)
-  useEffect(() => {
-    if (countdown === 1) fetchDF();
-  }, [countdown]);
+  // Auto-refresh REMOVED as requested. Manual refresh only.
 
   return (
     <div className="strategy-section">

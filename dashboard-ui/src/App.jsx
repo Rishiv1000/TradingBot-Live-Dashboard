@@ -8,6 +8,7 @@ import PositionsTab from "./components/tabs/PositionsTab";
 import HistoryTab from "./components/tabs/HistoryTab";
 import TerminalTab from "./components/tabs/TerminalTab";
 import SystemLogsTab from "./components/tabs/SystemLogsTab";
+import DatabaseTab from "./components/tabs/DatabaseTab";
 
 const TABS = [
 
@@ -16,6 +17,7 @@ const TABS = [
   { id: "history", label: "📜 History" },
   { id: "terminal", label: "🖥️ Terminal" },
   { id: "symbols", label: "📋 Symbols" },
+  { id: "database", label: "🗄️ Database" },
   { id: "syslogs", label: "⚙️ System Logs" },
 ];
 
@@ -232,6 +234,9 @@ export default function App() {
         </div>
         <div style={{ display: activeTab === "symbols" ? "block" : "none" }}>
           <SymbolsTab key="symbols" symbolsCache={symbolsCache} status={status} onRefreshSymbols={refreshSymbols} />
+        </div>
+        <div style={{ display: activeTab === "database" ? "block" : "none" }}>
+          <DatabaseTab key="database" />
         </div>
         <div style={{ display: activeTab === "syslogs" ? "block" : "none" }}>
           <SystemLogsTab key="syslogs" />

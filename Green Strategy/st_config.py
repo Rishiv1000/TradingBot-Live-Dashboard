@@ -12,10 +12,12 @@ if PROJECT_ROOT not in sys.path:
 
 from config.base_config import *
 
+# --- [STRATEGY SPECIFIC CONFIG] ---
 STRATEGY_NAME = "GREEN"
-SYMBOLS_TABLE = "symbols_green"
-
-# Strategy Specific Params
 TARGET = 0.1
 STOPLOSS = 0.1
 LOOKBACK_DAYS = 0.05  # ~3 days of 1-min candles
+
+# --- [STRATEGY SPECIFIC TABLE NAMES] ---
+GREEN_SYMBOLS_LIVE_TBL = "green_symbols_live"
+GREEN_TRADES_LIVE_TBL = "green_trades_live"

@@ -13,8 +13,9 @@ sys.path.insert(0, PROJECT_ROOT)
 
 import st_config as config
 
-STRATEGY_NAME = getattr(config, "ACTIVE_STRATEGY", "GREEN")
-SYMBOLS_TABLE = getattr(config, "SYMBOLS_TABLE", "symbols_green")
+STRATEGY_NAME           = getattr(config, "STRATEGY_NAME", "GREEN")
+SYMBOLS_LIVE_TBL        = getattr(config, "GREEN_SYMBOLS_LIVE_TBL", "green_symbols_live")
+TRADES_LIVE_TBL         = getattr(config, "GREEN_TRADES_LIVE_TBL", "green_trades_live")
 
 def _db(database=None):
     return mysql.connector.connect(
@@ -23,7 +24,7 @@ def _db(database=None):
     )
 
 def setup_table():
-    print(f"[{STRATEGY_NAME}] Setting up: {config.DB_NAME}.{SYMBOLS_TABLE}")
+    print(f"[{STRATEGY_NAME}] Setting up: {config.DB_NAME}.{SYMBOLS_LIVE_TBL} and {TRADES_LIVE_TBL}")
     conn = _db()
     conn.cursor().execute(f"CREATE DATABASE IF NOT EXISTS {config.DB_NAME}")
     conn.close()
@@ -31,13 +32,9 @@ def setup_table():
     conn = _db(config.DB_NAME)
     cursor = conn.cursor()
 
-    def ensure_col(table, col, col_def):
-        cursor.execute(f"SHOW COLUMNS FROM {table} LIKE %s", (col,))
-        if not cursor.fetchone():
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
-
+    # 1. Symbols Table
     cursor.execute(f"""
-        CREATE TABLE IF NOT EXISTS {SYMBOLS_TABLE} (
+        CREATE TABLE IF NOT EXISTS {SYMBOLS_LIVE_TBL} (
             id               INT AUTO_INCREMENT PRIMARY KEY,
             symbol           VARCHAR(50)  UNIQUE,
             exchange         VARCHAR(20),
@@ -52,11 +49,10 @@ def setup_table():
             last_sell_time   DATETIME     DEFAULT NULL
         )
     """)
-    ensure_col(SYMBOLS_TABLE, "mode",     "VARCHAR(20) DEFAULT 'LIVE'")
-    ensure_col(SYMBOLS_TABLE, "strategy", f"VARCHAR(50) DEFAULT '{STRATEGY_NAME}'")
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS trades_log (
+    # 2. Trades Table
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS {TRADES_LIVE_TBL} (
             id            INT AUTO_INCREMENT PRIMARY KEY,
             symbol        VARCHAR(50),
             buytime       DATETIME,
@@ -72,17 +68,15 @@ def setup_table():
             strategy      VARCHAR(50)  DEFAULT NULL
         )
     """)
-    ensure_col("trades_log", "mode",     "VARCHAR(20) DEFAULT 'LIVE'")
-    ensure_col("trades_log", "strategy", "VARCHAR(50) DEFAULT NULL")
 
     conn.commit()
     conn.close()
-    print(f"[{STRATEGY_NAME}] ✅ Table ready.")
+    print(f"[{STRATEGY_NAME}] ✅ Tables ready.")
 
 def reset_positions():
     conn = _db(config.DB_NAME)
     cursor = conn.cursor()
-    cursor.execute(f"UPDATE {SYMBOLS_TABLE} SET isExecuted=0, buyprice=NULL, buytime=NULL, buy_order_id=NULL")
+    cursor.execute(f"UPDATE {SYMBOLS_LIVE_TBL} SET isExecuted=0, buyprice=NULL, buytime=NULL, buy_order_id=NULL")
     conn.commit()
     conn.close()
 

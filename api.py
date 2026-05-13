@@ -14,41 +14,27 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # ── paths ─────────────────────────────────────────────────────────────────────
-BASE_DIR          = os.path.dirname(os.path.abspath(__file__))
-ENV_PATH          = os.path.abspath(os.path.join(BASE_DIR, "config", ".env"))
-ACCESS_TOKEN_FILE = os.path.abspath(os.path.join(BASE_DIR, "config", "access_token.txt"))
-LOGS_DIR          = os.path.abspath(os.path.join(BASE_DIR, "logs"))
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-load_dotenv(ENV_PATH)
 
-
-def _env(key, default=""):
-    val = os.getenv(key, default)
-    return val.strip('"').strip("'").strip() if val else default
-
-
-API_KEY     = _env("KITE_API_KEY")
-API_SECRET  = _env("KITE_API_SECRET")
-DB_HOST     = _env("DB_HOST", "localhost")
-DB_USER     = _env("DB_USER", "root")
-DB_PASSWORD = _env("DB_PASSWORD", "")
-DB_NAME     = _env("DB_NAME", "trading_bot_live")
-DB_POOL_SIZE = int(_env("DB_POOL_SIZE", "32"))
+from config.base_config import (
+    API_KEY, API_SECRET, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_POOL_SIZE,
+    ACCESS_TOKEN_FILE, LOGS_DIR
+)
 
 STRATEGIES = {
     "GREEN": {
         "folder": os.path.abspath(os.path.join(BASE_DIR, "Green Strategy")),
         "runner": os.path.abspath(os.path.join(BASE_DIR, "Green Strategy", "main_runner.py")),
-        "table":  "symbols_green",
+        "table":  "green_symbols_live",
         "color":  "#2ea043",
     },
     "GREEN3": {
         "folder": os.path.abspath(os.path.join(BASE_DIR, "Green3 Strategy")),
         "runner": os.path.abspath(os.path.join(BASE_DIR, "Green3 Strategy", "main_runner.py")),
-        "table":  "symbols_green3",
+        "table":  "green3_symbols_live",
         "color":  "#58a6ff",
     },
     "EMA": {
@@ -222,11 +208,68 @@ class SessionRequest(BaseModel):
 class SymbolRequest(BaseModel):
     symbol: str
     exchange: str = "NSE"
+    target_price: float = 0.0
+
+class TargetUpdateRequest(BaseModel):
+    symbol: str
+    target_price: float
+
+class PoolResizeRequest(BaseModel):
+    new_size: int
 
 
 # ═════════════════════════════════════════════════════════════════════════════
 # ENDPOINTS
 # ═════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/db/status")
+def get_db_status():
+    try:
+        conn = _db()
+        cursor = conn.cursor(dictionary=True)
+        # Query MySQL for global thread info
+        cursor.execute("SHOW STATUS LIKE 'Threads_connected'")
+        connected = cursor.fetchone()["Value"]
+        cursor.execute("SHOW STATUS LIKE 'Threads_running'")
+        running = cursor.fetchone()["Value"]
+        conn.close()
+        return {
+            "pool_name": _db_pool.pool_name,
+            "pool_size": _db_pool.pool_size,
+            "threads_connected": connected,
+            "threads_running": running,
+            "db_name": DB_NAME
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/api/db/resize")
+def resize_pool(body: PoolResizeRequest):
+    global _db_pool, DB_POOL_SIZE
+    if body.new_size < 5 or body.new_size > 200:
+        raise HTTPException(status_code=400, detail="Size must be between 5 and 200")
+    
+    # Update base_config.py
+    try:
+        base_cfg_path = os.path.join(BASE_DIR, "config", "base_config.py")
+        with open(base_cfg_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        with open(base_cfg_path, "w", encoding="utf-8") as f:
+            found = False
+            for line in lines:
+                if line.strip().startswith("DB_POOL_SIZE ="):
+                    f.write(f"DB_POOL_SIZE = {body.new_size}\n")
+                    found = True
+                else:
+                    f.write(line)
+            if not found:
+                # If not found, append it to DATABASE CONFIG section or end
+                f.write(f"\nDB_POOL_SIZE = {body.new_size}\n")
+        
+        DB_POOL_SIZE = body.new_size
+        return {"success": True, "message": f"Pool size updated to {body.new_size} in base_config.py. Restart recommended."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 def _read_trading_enabled() -> bool:
     """Read REAL_TRADING_ENABLED from base_config.py by parsing the file directly."""
@@ -326,7 +369,7 @@ def get_symbols(strategy: str):
         raise HTTPException(status_code=404, detail="Unknown strategy")
     try:
         return db_fetchall(
-            f"SELECT symbol, exchange, instrument_token, isExecuted FROM {STRATEGIES[strategy]['table']} ORDER BY symbol"
+            f"SELECT symbol, exchange, instrument_token, isExecuted, target_price FROM {STRATEGIES[strategy]['table']} ORDER BY symbol"
         )
     except Exception:
         return []
@@ -346,13 +389,26 @@ def add_symbol(strategy: str, body: SymbolRequest):
         token = ltp_data[inst]["instrument_token"]
         table = STRATEGIES[strategy]["table"]
         db_exec(
-            f"INSERT INTO {table} (symbol, exchange, instrument_token, isExecuted) VALUES (%s, %s, %s, 0) "
-            f"ON DUPLICATE KEY UPDATE exchange=%s, instrument_token=%s",
-            (body.symbol.upper(), body.exchange.upper(), token, body.exchange.upper(), token),
+            f"INSERT INTO {table} (symbol, exchange, instrument_token, isExecuted, target_price) VALUES (%s, %s, %s, 0, %s) "
+            f"ON DUPLICATE KEY UPDATE exchange=%s, instrument_token=%s, target_price=%s",
+            (body.symbol.upper(), body.exchange.upper(), token, body.target_price, body.exchange.upper(), token, body.target_price),
         )
         return {"success": True, "token": token}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/symbols/{strategy}/target")
+def update_target_price(strategy: str, body: TargetUpdateRequest):
+    strategy = strategy.upper()
+    if strategy not in STRATEGIES:
+        raise HTTPException(status_code=404, detail="Unknown strategy")
+    table = STRATEGIES[strategy]["table"]
+    db_exec(
+        f"UPDATE {table} SET target_price=%s WHERE symbol=%s",
+        (body.target_price, body.symbol.upper()),
+    )
+    return {"success": True}
 
 
 @app.delete("/api/symbols/{strategy}/{symbol}")

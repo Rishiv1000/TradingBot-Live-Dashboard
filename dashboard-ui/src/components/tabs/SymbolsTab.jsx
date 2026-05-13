@@ -6,6 +6,7 @@ import api from "../../api";
 function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
   const [symbolInput, setSymbolInput]   = useState("");
   const [exchangeInput, setExchangeInput] = useState("NSE");
+  const [targetPriceInput, setTargetPriceInput] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState("");
   const [addMsg, setAddMsg]             = useState("");
   const [addLoading, setAddLoading]     = useState(false);
@@ -60,6 +61,7 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
       const res = await api.post(`/api/symbols/${strategy}`, {
         symbol:   symbolInput.trim().toUpperCase(),
         exchange: exchangeInput.trim().toUpperCase(),
+        target_price: parseFloat(targetPriceInput) || 0,
       });
       if (res.data.success) {
         setAddMsg(`✅ Added ${symbolInput.toUpperCase()} (token: ${res.data.token})`);
@@ -93,6 +95,15 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
     }
   };
 
+  const updateTarget = async (symbol, price) => {
+    try {
+      await api.post(`/api/symbols/${strategy}/target`, { symbol, target_price: parseFloat(price) || 0 });
+      onRefreshSymbols(strategy);
+    } catch (e) {
+      console.error("Update target failed:", e);
+    }
+  };
+
   return (
     <div className="strategy-section">
       <div className="strategy-section-header" style={{ color }}>
@@ -106,6 +117,7 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
               <th>Executed</th>
               <th>Symbol</th>
               <th>Exchange</th>
+              {strategy === 'EMA' && <th>Target Price</th>}
               <th>Instrument Token</th>
             </tr>
           </thead>
@@ -130,6 +142,17 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
                   </td>
                   <td style={{ fontWeight: 600 }}>{row.symbol}</td>
                   <td>{row.exchange}</td>
+                  {strategy === 'EMA' && (
+                    <td>
+                      <input 
+                        type="number" 
+                        defaultValue={row.target_price || 0}
+                        onBlur={(e) => updateTarget(row.symbol, e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && updateTarget(row.symbol, e.target.value)}
+                        style={{ width: "80px", padding: "4px", fontSize: "12px" }}
+                      />
+                    </td>
+                  )}
                   <td style={{ color: "#8b949e" }}>{row.instrument_token}</td>
                 </tr>
               ))
@@ -160,6 +183,17 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
             style={{ width: "80px" }}
           />
         </div>
+        {strategy === 'EMA' && (
+          <div>
+            <div style={{ fontSize: "11px", color: "#8b949e", marginBottom: "4px" }}>Target Price</div>
+            <input
+              type="number"
+              value={targetPriceInput}
+              onChange={(e) => setTargetPriceInput(e.target.value)}
+              style={{ width: "100px" }}
+            />
+          </div>
+        )}
         <button className="btn-primary" onClick={handleAdd} disabled={addLoading}>
           {addLoading ? "Adding..." : "➕ Add"}
         </button>
