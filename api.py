@@ -33,6 +33,12 @@ except Exception as e:
     ACCESS_TOKEN_FILE = LOGS_DIR = ""
 
 STRATEGIES = {
+     "EMA": {
+        "folder": os.path.abspath(os.path.join(BASE_DIR, "EMA_Strategy")),
+        "runner": os.path.abspath(os.path.join(BASE_DIR, "EMA_Strategy", "main_runner.py")),
+        "table":  "ema_symbols_live",
+        "color":  "#ff9800",
+    },
     "GREEN": {
         "folder": os.path.abspath(os.path.join(BASE_DIR, "Green Strategy")),
         "runner": os.path.abspath(os.path.join(BASE_DIR, "Green Strategy", "main_runner.py")),
@@ -45,12 +51,7 @@ STRATEGIES = {
         "table":  "green3_symbols_live",
         "color":  "#58a6ff",
     },
-    "EMA": {
-        "folder": os.path.abspath(os.path.join(BASE_DIR, "EMA_Strategy")),
-        "runner": os.path.abspath(os.path.join(BASE_DIR, "EMA_Strategy", "main_runner.py")),
-        "table":  "ema_symbols_live",
-        "color":  "#ff9800",
-    },
+   
 }
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
@@ -262,8 +263,8 @@ def get_db_status():
 @app.post("/api/db/resize")
 def resize_pool(body: PoolResizeRequest):
     global _db_pool, DB_POOL_SIZE
-    if body.new_size < 5 or body.new_size > 200:
-        raise HTTPException(status_code=400, detail="Size must be between 5 and 200")
+    if body.new_size < 5 or body.new_size > 32:
+        raise HTTPException(status_code=400, detail="Size must be between 5 and 32")
     
     # Update base_config.py
     try:

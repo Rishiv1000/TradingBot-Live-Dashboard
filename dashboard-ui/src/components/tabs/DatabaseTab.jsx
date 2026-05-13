@@ -76,16 +76,16 @@ export default function DatabaseTab() {
             <input 
               type="range" 
               min="10" 
-              max="200" 
-              step="5" 
+              max="32" 
+              step="1" 
               value={newSize} 
               onChange={(e) => setNewSize(e.target.value)} 
               style={{ width: "100%", height: "8px", borderRadius: "4px", background: "#30363d", cursor: "pointer" }}
             />
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: "8px", fontSize: "12px", color: "#8b949e" }}>
-              <span>10</span>
+              <span>5</span>
               <span style={{ color: "var(--text-color)", fontWeight: 700 }}>New Size: {newSize}</span>
-              <span>200</span>
+              <span>32</span>
             </div>
           </div>
           <button 

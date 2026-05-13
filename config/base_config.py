@@ -24,7 +24,7 @@ DB_HOST     = os.getenv("DB_HOST", "localhost")
 DB_USER     = os.getenv("DB_USER", "root")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME     = os.getenv("DB_NAME", "trading_bot_live")
-DB_POOL_SIZE = 64
+DB_POOL_SIZE = 32
 
 # --- [COMMON TRADING SETTINGS] ---
 DEFAULT_QTY          = 1
