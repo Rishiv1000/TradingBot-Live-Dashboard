@@ -247,6 +247,8 @@ def _read_trading_enabled() -> bool:
 @app.post("/api/shutdown_system")
 def shutdown_system():
     print("[!] Shutdown triggered via API.")
+    with open(".stop_backend", "w") as f:
+        f.write("stop")
     for strategy in STRATEGIES:
         try:
             from api import stop_strategy

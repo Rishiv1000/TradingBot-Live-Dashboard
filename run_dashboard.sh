@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────
-# run_dashboard.sh  —  Optimized Start (Live Project)
+# run_dashboard.sh  —  Super Stable (Auto-Restart) Mode [LIVE]
 # Usage: bash run_dashboard.sh
 # ─────────────────────────────────────────────────────────────
 
@@ -9,49 +9,52 @@ cd "$BASE_DIR"
 
 mkdir -p logs
 
-echo "[*] Cleaning up Live sessions..."
+# Startup Cleanup
+echo "[*] Cleaning up old Live sessions..."
+rm -f .stop_backend
 pkill -f "uvicorn api:app" 2>/dev/null
 pkill -f "npm run dev" 2>/dev/null
 sleep 1
 
-echo "[*] Reading configuration..."
-DASHBOARD_PORT=$(python -c "import sys; sys.path.insert(0, '.'); from config.base_config import DASHBOARD_PORT; print(DASHBOARD_PORT)" 2>/dev/null)
-API_PORT=$(python -c "import sys; sys.path.insert(0, '.'); from config.base_config import API_PORT; print(API_PORT)" 2>/dev/null)
+# Start Backend Loop
+start_backend() {
+    while true; do
+        echo "🚀 Starting Live Backend (Port: 8000)..."
+        # Removing --reload for absolute stability
+        uvicorn api:app --host 0.0.0.0 --port 8000 > logs/api.log 2>&1
+        
+        # Check if we should stop for real
+        if [ -f ".stop_backend" ]; then
+            echo "[✓] Manual Shutdown detected. Live Loop stopped."
+            pkill -f "npm run dev" 2>/dev/null
+            exit 0
+        fi
+        
+        echo "❌ LIVE Backend CRASHED! Restarting in 2s..."
+        sleep 2
+    done
+}
 
-[ -z "$DASHBOARD_PORT" ] && DASHBOARD_PORT=5173
-[ -z "$API_PORT" ] && API_PORT=8000
+# Start Frontend Loop
+start_frontend() {
+    while true; do
+        echo "🚀 Starting Live Frontend (Port: 5173)..."
+        cd "$BASE_DIR/dashboard-ui"
+        VITE_PORT=5173 VITE_API_TARGET="http://127.0.0.1:8000" npm run dev > ../logs/vite.log 2>&1
+        echo "⚠️ Live Frontend CRASHED! Restarting in 2s..."
+        cd "$BASE_DIR"
+        sleep 2
+    done
+}
 
-echo "🚀 Starting Live Backend (Port: $API_PORT)..."
-echo "⚠️  REAL TRADING MODE ACTIVE"
-uvicorn api:app --host 0.0.0.0 --port $API_PORT --reload > logs/api.log 2>&1 &
-UVICORN_PID=$!
-
-sleep 2
-if ! ps -p $UVICORN_PID > /dev/null; then
-    echo "❌ ERROR: Live Backend failed to start!"
-    echo "--- Last 10 lines of logs/api.log ---"
-    tail -n 10 logs/api.log
-    exit 1
-fi
-echo "[✓] Live Backend is UP (PID: $UVICORN_PID)"
-
-echo "🚀 Starting Live Frontend (Port: $DASHBOARD_PORT)..."
-cd "$BASE_DIR/dashboard-ui"
-VITE_PORT=$DASHBOARD_PORT VITE_API_TARGET="http://127.0.0.1:$API_PORT" npm run dev > ../logs/vite.log 2>&1 &
-VITE_PID=$!
-
-sleep 2
-if ! ps -p $VITE_PID > /dev/null; then
-    echo "❌ ERROR: Live Frontend failed to start!"
-    echo "--- Last 10 lines of logs/vite.log ---"
-    tail -n 10 ../logs/vite.log
-    kill $UVICORN_PID 2>/dev/null
-    exit 1
-fi
-echo "[✓] Live Frontend is UP (PID: $VITE_PID)"
+# Run both in background loops
+start_backend &
+start_frontend &
 
 echo "------------------------------------------------"
-echo "✅ LIVE Dashboard is ready: http://localhost:$DASHBOARD_PORT"
+echo "✅ SUPER STABLE Live Dashboard is RUNNING."
+echo "🔄 Auto-restart ENABLED for max uptime."
 echo "------------------------------------------------"
 
-wait $UVICORN_PID $VITE_PID
+# Keep the main script alive
+wait

@@ -53,6 +53,14 @@ function CandleChart({ data, columns, color }) {
       borderDownColor: "#da3633",
       wickUpColor: color || "#2ea043",
       wickDownColor: "#da3633",
+      localization: {
+        timeFormatter: (time) => {
+          const date = new Date(time * 1000);
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          return `${hours}:${minutes}`;
+        },
+      },
     });
 
     const ema9 = chart.addLineSeries({ color: "#2196f3", lineWidth: 2, title: "EMA 9" });

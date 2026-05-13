@@ -30,6 +30,8 @@ def setup_db():
             exchange            VARCHAR(20),
             instrument_token    INT,
             isExecuted          TINYINT(1)   DEFAULT 0,
+            target_price        DOUBLE       DEFAULT 0,
+            trigger_buy_price   DOUBLE       DEFAULT NULL,
             buy_price           DOUBLE       DEFAULT NULL,
             buy_time            DATETIME     DEFAULT NULL,
             buy_order_id        VARCHAR(100) DEFAULT NULL,
@@ -37,14 +39,17 @@ def setup_db():
             last_sell_time      DATETIME     DEFAULT NULL
         )
     """)
+ 
 
     # 2. Live Trades Log
     cursor.execute(f"""
         CREATE TABLE IF NOT EXISTS {EMA_TRADES_LIVE_TBL} (
             id                   INT AUTO_INCREMENT PRIMARY KEY,
             symbol               VARCHAR(50),
+            trigger_buy_price   DOUBLE       DEFAULT NULL,
             buy_price            DOUBLE       DEFAULT NULL,
             buy_time             DATETIME     DEFAULT NULL,
+            trigger_sell_price  DOUBLE       DEFAULT NULL,
             sell_price           DOUBLE       DEFAULT NULL,
             sell_time            DATETIME     DEFAULT NULL,
             pnl                  DOUBLE       DEFAULT 0,
