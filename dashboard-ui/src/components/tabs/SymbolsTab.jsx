@@ -41,6 +41,7 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
         .map(r => ({
           symbol: (r.symbol || r.Symbol || "").toString().trim().toUpperCase(),
           exchange: (r.exchange || r.Exchange || "NSE").toString().trim().toUpperCase(),
+          target_price: parseFloat(r.target_price || r.Target_Price || r["Target Price"] || 0)
         }))
         .filter(r => r.symbol);
       if (!symbols.length) { setBulkMsg("❌ No valid symbols found in file"); setBulkLoading(false); return; }
@@ -95,14 +96,6 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
     }
   };
 
-  const updateTarget = async (symbol, price) => {
-    try {
-      await api.post(`/api/symbols/${strategy}/target`, { symbol, target_price: parseFloat(price) || 0 });
-      onRefreshSymbols(strategy);
-    } catch (e) {
-      console.error("Update target failed:", e);
-    }
-  };
 
   return (
     <div className="strategy-section">
@@ -143,14 +136,8 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
                   <td style={{ fontWeight: 600 }}>{row.symbol}</td>
                   <td>{row.exchange}</td>
                   {strategy === 'EMA' && (
-                    <td>
-                      <input 
-                        type="number" 
-                        defaultValue={row.target_price || 0}
-                        onBlur={(e) => updateTarget(row.symbol, e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && updateTarget(row.symbol, e.target.value)}
-                        style={{ width: "80px", padding: "4px", fontSize: "12px" }}
-                      />
+                    <td style={{ fontWeight: 700, color: "var(--text-color)" }}>
+                      {row.target_price || 0}
                     </td>
                   )}
                   <td style={{ color: "#8b949e" }}>{row.instrument_token}</td>
@@ -227,7 +214,7 @@ function StrategySymbols({ strategy, color, symbols, onRefreshSymbols }) {
       {/* Bulk Excel Upload */}
       <div style={{ marginTop: "14px" }}>
         <div style={{ fontSize: "11px", color: "#8b949e", marginBottom: "6px" }}>📂 Bulk Upload from Excel</div>
-        <div style={{ fontSize: "11px", color: "#484f58", marginBottom: "6px" }}>Excel format: columns <b>symbol</b>, <b>exchange</b></div>
+        <div style={{ fontSize: "11px", color: "#484f58", marginBottom: "6px" }}>Excel format: columns <b>symbol</b>, <b>exchange</b>, <b>target_price (optional)</b></div>
         <label style={{ display: "inline-block" }}>
           <input type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={handleExcelUpload} disabled={bulkLoading} />
           <span className="btn-blue" style={{ cursor: "pointer", fontSize: "12px", padding: "6px 12px", borderRadius: "6px", display: "inline-block" }}>

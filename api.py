@@ -711,14 +711,15 @@ async def bulk_symbols(strategy: str, request: Request):
         exch = item.get("exchange", "NSE").strip().upper()
         if not sym:
             continue
+        target_price = float(item.get("target_price", 0))
         try:
             inst = f"{exch}:{sym}"
             token = kite.ltp(inst)[inst]["instrument_token"]
             table = STRATEGIES[strategy]["table"]
             db_exec(
-                f"INSERT INTO {table} (symbol, exchange, instrument_token, isExecuted) VALUES (%s, %s, %s, 0) "
-                f"ON DUPLICATE KEY UPDATE exchange=%s, instrument_token=%s",
-                (sym, exch, token, exch, token),
+                f"INSERT INTO {table} (symbol, exchange, instrument_token, isExecuted, target_price) VALUES (%s, %s, %s, 0, %s) "
+                f"ON DUPLICATE KEY UPDATE exchange=%s, instrument_token=%s, target_price=%s",
+                (sym, exch, token, target_price, exch, token, target_price),
             )
             added.append(sym)
         except Exception as e:
