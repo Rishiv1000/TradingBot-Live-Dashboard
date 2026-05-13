@@ -91,7 +91,7 @@ export default function App() {
   // ── fetch all symbols once ─────────────────────────────────────────────────
   const fetchAllSymbols = useCallback(async () => {
     try {
-      const strategies = ["GREEN", "GREEN3"];
+      const strategies = ["GREEN", "GREEN3", "EMA"];
       const results = await Promise.all(
         strategies.map((s) => api.get(`/api/symbols/${s}`).then((r) => [s, r.data]))
       );
