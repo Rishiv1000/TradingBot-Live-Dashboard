@@ -19,10 +19,18 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 
-from config.base_config import (
-    API_KEY, API_SECRET, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_POOL_SIZE,
-    ACCESS_TOKEN_FILE, LOGS_DIR
-)
+try:
+    from config.base_config import (
+        API_KEY, API_SECRET, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_POOL_SIZE,
+        ACCESS_TOKEN_FILE, LOGS_DIR
+    )
+    print("✅ Configuration loaded successfully.")
+except Exception as e:
+    print(f"❌ ERROR: Failed to load configuration from base_config.py: {e}")
+    # Set defaults so the script doesn't crash immediately but shows the error
+    API_KEY = API_SECRET = DB_HOST = DB_USER = DB_PASSWORD = DB_NAME = ""
+    DB_POOL_SIZE = 32
+    ACCESS_TOKEN_FILE = LOGS_DIR = ""
 
 STRATEGIES = {
     "GREEN": {
@@ -57,16 +65,20 @@ app.add_middleware(
 )
 
 # ── DB connection pool ────────────────────────────────────────────────────────
-# A single pool shared across all requests — avoids opening a new TCP
-# connection to MySQL on every API call (status polling, symbol adds, etc.)
-_db_pool = mysql.connector.pooling.MySQLConnectionPool(
-    pool_name="live_pool",
-    pool_size=DB_POOL_SIZE,
-    host=DB_HOST,
-    user=DB_USER,
-    password=DB_PASSWORD,
-    database=DB_NAME,
-)
+_db_pool = None
+try:
+    _db_pool = mysql.connector.pooling.MySQLConnectionPool(
+        pool_name="live_pool",
+        pool_size=DB_POOL_SIZE,
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+    )
+    print(f"✅ Database Pool initialized with size: {DB_POOL_SIZE}")
+except Exception as e:
+    print(f"❌ ERROR: Failed to initialize Database Pool: {e}")
+    # We don't exit here so we can see the error in logs, but _db() will fail later
 
 
 def _db():
