@@ -90,10 +90,17 @@ function CandleChart({ data, columns, color }) {
 
     if (!dateCol || !openCol || !highCol || !lowCol || !closeCol) return;
 
+    const parseLocalTime = (dateStr) => {
+      if (!dateStr) return null;
+      // Force local parsing by replacing 'T' with space and removing timezone suffixes
+      const cleanStr = dateStr.replace('T', ' ').split('.')[0].split('+')[0].split('Z')[0];
+      return Math.floor(new Date(cleanStr).getTime() / 1000);
+    };
+
     const candles = data
       .map((row) => {
         // Convert "2024-01-15 09:15:00" → Unix timestamp (seconds)
-        const ts = Math.floor(new Date(row[dateCol]).getTime() / 1000);
+        const ts = parseLocalTime(row[dateCol]);
         return {
           time: ts,
           open: parseFloat(row[openCol]),
@@ -115,7 +122,7 @@ function CandleChart({ data, columns, color }) {
     const ema9Col = columns.find((c) => c === "EMA_9");
     if (ema9Col) {
       const ema9Data = data.map((row) => ({
-        time: Math.floor(new Date(row[dateCol]).getTime() / 1000),
+        time: parseLocalTime(row[dateCol]),
         value: parseFloat(row[ema9Col]),
       })).filter(d => !isNaN(d.value)).sort((a, b) => a.time - b.time);
       ema9Ref.current.setData(ema9Data);
@@ -125,7 +132,7 @@ function CandleChart({ data, columns, color }) {
     const ema20Col = columns.find((c) => c === "EMA_20");
     if (ema20Col) {
       const ema20Data = data.map((row) => ({
-        time: Math.floor(new Date(row[dateCol]).getTime() / 1000),
+        time: parseLocalTime(row[dateCol]),
         value: parseFloat(row[ema20Col]),
       })).filter(d => !isNaN(d.value)).sort((a, b) => a.time - b.time);
       ema20Ref.current.setData(ema20Data);
@@ -137,7 +144,7 @@ function CandleChart({ data, columns, color }) {
     const markers = [];
 
     data.forEach((row) => {
-      const time = Math.floor(new Date(row[dateCol]).getTime() / 1000);
+      const time = parseLocalTime(row[dateCol]);
       if (crossUpCol && row[crossUpCol] === 1) {
         markers.push({ time, position: "belowBar", color: "#2ea043", shape: "arrowUp", text: "BUY" });
       } else if (crossDownCol && row[crossDownCol] === 1) {

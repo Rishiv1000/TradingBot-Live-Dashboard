@@ -1,36 +1,11 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────
-# run_dashboard.sh  —  Unified Start/Stop (Live Project)
+# run_dashboard.sh  —  Start Live Dashboard (No Auto-Stop)
 # Usage: bash run_dashboard.sh
 # ─────────────────────────────────────────────────────────────
 
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$BASE_DIR"
-
-cleanup() {
-    echo ""
-    echo "[!] STOP SIGNAL RECEIVED — Killing Live processes..."
-    
-    # Force kill Tree for API and UI
-    if [ -n "$UVICORN_PID" ]; then
-        echo "[*] Killing Live API (PID: $UVICORN_PID)..."
-        taskkill //F //T //PID $UVICORN_PID 2>/dev/null
-    fi
-    
-    if [ -n "$VITE_PID" ]; then
-        echo "[*] Killing Live UI (PID: $VITE_PID)..."
-        taskkill //F //T //PID $VITE_PID 2>/dev/null
-    fi
-    
-    # Surgical strategy kill
-    echo "[*] Cleaning up Live strategies..."
-    pkill -f "main_runner.py" 2>/dev/null
-    
-    echo "[✓] Live Project Terminated."
-    exit 0
-}
-
-trap cleanup SIGINT SIGTERM EXIT
 
 # Check deps
 if ! command -v uvicorn &>/dev/null; then
@@ -54,7 +29,8 @@ cd "$BASE_DIR/dashboard-ui"
 VITE_PORT=$DASHBOARD_PORT VITE_API_TARGET="http://127.0.0.1:$API_PORT" npm run dev > ../logs/vite.log 2>&1 &
 VITE_PID=$!
 
-echo "[✓] Live Dashboard is RUNNING."
+echo "[✓] Live Dashboard is RUNNING. PIDs: API($UVICORN_PID), UI($VITE_PID)"
+echo "[!] Auto-stop is DISABLED."
 
-# Wait for background processes
+# Stay alive
 wait $UVICORN_PID $VITE_PID

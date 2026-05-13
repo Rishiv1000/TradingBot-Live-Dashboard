@@ -244,6 +244,19 @@ def _read_trading_enabled() -> bool:
     return False
 
 
+@app.post("/api/shutdown_system")
+def shutdown_system():
+    print("[!] Shutdown triggered via API.")
+    for strategy in STRATEGIES:
+        try:
+            from api import stop_strategy
+            stop_strategy(strategy)
+        except:
+            pass
+    import os, signal
+    os.kill(os.getpid(), signal.SIGINT)
+    return {"success": True, "message": "System is shutting down..."}
+
 @app.get("/api/status")
 def get_status():
     trading_enabled = _read_trading_enabled()

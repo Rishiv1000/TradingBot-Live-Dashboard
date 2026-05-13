@@ -127,10 +127,11 @@ export default function Sidebar({
   };
 
   const handleStopServer = async () => {
-    if (!window.confirm("Stop the API server?")) return;
+    if (!window.confirm("CRITICAL: This will shut down the entire Live Backend server. Continue?")) return;
     try {
-      await api.post("/api/server/stop");
+      await api.post("/api/shutdown_system");
       setStopApiMsg("✅ Server stopping...");
+      alert("Live Backend is shutting down.");
     } catch {
       setStopApiMsg("✅ Server stopping...");
     }
@@ -316,6 +317,18 @@ export default function Sidebar({
               {logoutMsg}
             </div>
           )}
+        </div>
+
+        {/* System Shutdown */}
+        <div style={{ marginTop: "12px", borderTop: "1px solid var(--border-color)", paddingTop: "12px" }}>
+          <button
+            className="btn-danger"
+            style={{ width: "100%", fontSize: "12px", background: "linear-gradient(to right, #da3633, #8b1e1e)" }}
+            onClick={handleStopServer}
+          >
+            🛑 Shutdown Backend Server
+          </button>
+          {stopApiMsg && <div style={{ fontSize: "11px", marginTop: "6px", color: "#2ea043" }}>{stopApiMsg}</div>}
         </div>
       </div>
 
