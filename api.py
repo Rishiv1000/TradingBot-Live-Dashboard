@@ -771,15 +771,3 @@ def kite_logout():
     except Exception as e:
         return {"success": False, "error": str(e)}
     return {"success": True}
-
-
-@app.post("/api/server/stop")
-def stop_server():
-    """Gracefully stop the API server."""
-    import threading
-    def _shutdown():
-        import time as _t
-        _t.sleep(0.5)
-        os._exit(0)
-    threading.Thread(target=_shutdown, daemon=True).start()
-    return {"success": True, "message": "Server shutting down..."}
