@@ -66,6 +66,7 @@ app.add_middleware(
 
 # ── DB connection pool ────────────────────────────────────────────────────────
 _db_pool = None
+_db_error_msg = ""
 try:
     print(f"DEBUG: DB_HOST={DB_HOST}, DB_USER={DB_USER}, DB_NAME={DB_NAME}, DB_POOL_SIZE={DB_POOL_SIZE}")
     _db_pool = mysql.connector.pooling.MySQLConnectionPool(
@@ -78,13 +79,14 @@ try:
     )
     print(f"✅ Database Pool initialized with size: {DB_POOL_SIZE}")
 except Exception as e:
-    print(f"❌ DB TABLES ERRORS >>> PLEASE CHECK DB TABLE EITHER NOT CREATE OR OTHERS: {e}")
+    _db_error_msg = str(e)
+    print(f"❌ DB TABLES ERRORS >>> PLEASE CHECK DB TABLE EITHER NOT CREATE OR OTHERS: {_db_error_msg}")
     # We don't exit here so we can see the error in logs, but _db() will fail later
 
 
 def _db():
     if _db_pool is None:
-        raise Exception("DB TABLES ERRORS >>> PLEASE CHECK DB TABLE EITHER NOT CREATE OR OTHERS")
+        raise Exception(f"DB TABLES ERRORS >>> PLEASE CHECK DB TABLE EITHER NOT CREATE OR OTHERS | Original Error: {_db_error_msg}")
     return _db_pool.get_connection()
 
 
