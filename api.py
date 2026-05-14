@@ -45,12 +45,12 @@ STRATEGIES = {
         "table":  "green_symbols_live",
         "color":  "#2ea043",
     },
-    "GREEN3": {
-        "folder": os.path.abspath(os.path.join(BASE_DIR, "Green3 Strategy")),
-        "runner": os.path.abspath(os.path.join(BASE_DIR, "Green3 Strategy", "main_runner.py")),
-        "table":  "green3_symbols_live",
-        "color":  "#58a6ff",
-    },
+    # "GREEN3": {
+    #     "folder": os.path.abspath(os.path.join(BASE_DIR, "Green3 Strategy")),
+    #     "runner": os.path.abspath(os.path.join(BASE_DIR, "Green3 Strategy", "main_runner.py")),
+    #     "table":  "green3_symbols_live",
+    #     "color":  "#58a6ff",
+    # },
    
 }
 
