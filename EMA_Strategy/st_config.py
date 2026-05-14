@@ -19,6 +19,9 @@ TARGET = 0.5
 STOPLOSS = 0.5
 EMA_LOOKBACK_DAYS = 3.0
 EMA_TIMEFRAME = '5minute'
+EMA_INTERVAL_MINUTES = 5  # Integer value for smart_sleep
+EMA_SHORT_GAP = 0.5       # Adding back the gap variable for entry logic
+DEFAULT_QTY = 1           # Quantity per trade
 
 # --- [STRATEGY SPECIFIC TABLE NAMES] ---
 EMA_SYMBOLS_LIVE_TBL     = "ema_symbols_live"     

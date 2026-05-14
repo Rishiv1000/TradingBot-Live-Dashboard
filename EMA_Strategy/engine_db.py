@@ -31,6 +31,7 @@ def setup_db():
             instrument_token    INT,
             isExecuted          TINYINT(1)   DEFAULT 0,
             target_price        DOUBLE       DEFAULT 0,
+            stoploss_price      DOUBLE       DEFAULT 0,
             trigger_buy_price   DOUBLE       DEFAULT NULL,
             buy_price           DOUBLE       DEFAULT NULL,
             buy_time            DATETIME     DEFAULT NULL,
