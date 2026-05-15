@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CandlestickSeries, createChart } from "lightweight-charts";
+import { CandlestickSeries, LineSeries, createChart } from "lightweight-charts";
 import api from "../../api";
 
 function toChartTime(value) {
@@ -40,6 +40,10 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const candlestickSeriesRef = useRef(null);
+  const ema9SeriesRef = useRef(null);
+  const ema20SeriesRef = useRef(null);
+  const [showChart, setShowChart] = useState(true);
+  const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
     if (symbolNames.length > 0 && !symbolNames.includes(selectedSymbol)) {
@@ -53,6 +57,9 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
     try {
       const res = await api.get(`${endpointPrefix}/df/${selectedSymbol}`);
       setDfData(res.data);
+      if (res.data.next_candle_sec) {
+        setCountdown(res.data.next_candle_sec);
+      }
     } catch {
       setDfData(null);
     } finally {
@@ -64,8 +71,23 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
     fetchDF();
   }, [fetchDF]);
 
+  // Countdown timer logic
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    if (countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          fetchDF(); // Re-fetch when countdown hits zero
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown, fetchDF]);
+
+  useEffect(() => {
+    if (!chartContainerRef.current || !showChart) return;
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: 300,
@@ -85,6 +107,22 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
     chartRef.current = chart;
     candlestickSeriesRef.current = series;
 
+    // Optional EMA lines
+    ema9SeriesRef.current = chart.addSeries(LineSeries, {
+      color: "#ffeb3b",
+      lineWidth: 1.5,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      title: "EMA 9",
+    });
+    ema20SeriesRef.current = chart.addSeries(LineSeries, {
+      color: "#2196f3",
+      lineWidth: 1.5,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      title: "EMA 20",
+    });
+
     const handleResize = () => {
       if (chartContainerRef.current) {
         chart.applyOptions({ width: chartContainerRef.current.clientWidth });
@@ -96,21 +134,59 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
       chart.remove();
       chartRef.current = null;
       candlestickSeriesRef.current = null;
+      ema9SeriesRef.current = null;
+      ema20SeriesRef.current = null;
     };
-  }, [color]);
+  }, [color, showChart]);
 
   useEffect(() => {
     if (!candlestickSeriesRef.current || !chartRef.current) return;
     const candles = buildCandles(dfData?.data);
     if (candles.length > 0) {
       candlestickSeriesRef.current.setData(candles);
+      
+      // Update EMA 9 (support both lowercase and uppercase)
+      const ema9Col = dfData?.columns?.find(c => c.toLowerCase() === "ema9" || c === "EMA_9");
+      if (ema9Col) {
+        const ema9Data = (dfData.data || [])
+          .map(row => ({ time: toChartTime(row.date || row.time || row.datetime), value: Number(row[ema9Col]) }))
+          .filter(d => d.time && !Number.isNaN(d.value))
+          .sort((a, b) => a.time - b.time);
+        ema9SeriesRef.current.setData(ema9Data);
+      } else {
+        ema9SeriesRef.current.setData([]);
+      }
+
+      // Update EMA 20 (support both lowercase and uppercase)
+      const ema20Col = dfData?.columns?.find(c => c.toLowerCase() === "ema20" || c === "EMA_20");
+      if (ema20Col) {
+        const ema20Data = (dfData.data || [])
+          .map(row => ({ time: toChartTime(row.date || row.time || row.datetime), value: Number(row[ema20Col]) }))
+          .filter(d => d.time && !Number.isNaN(d.value))
+          .sort((a, b) => a.time - b.time);
+        ema20SeriesRef.current.setData(ema20Data);
+      } else {
+        ema20SeriesRef.current.setData([]);
+      }
+
       chartRef.current.timeScale().fitContent();
     }
   }, [dfData]);
 
   return (
     <div className="strategy-section">
-      <div className="strategy-section-header" style={{ color }}>{strategy} Live DataFrame</div>
+      <div className="strategy-section-header" style={{ color, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span>{strategy} Live DataFrame</span>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <button 
+            className="btn-sm btn-secondary" 
+            onClick={() => setShowChart(!showChart)}
+            style={{ fontSize: "11px", padding: "4px 10px" }}
+          >
+            {showChart ? "Hide Chart" : "Show Chart"}
+          </button>
+        </div>
+      </div>
 
       {symbolNames.length === 0 ? (
         <div style={{ color: "#8b949e" }}>No symbols configured.</div>
@@ -130,13 +206,30 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
             <button className="btn-secondary" onClick={fetchDF} disabled={loading}>{loading ? "Loading..." : "Refresh DF"}</button>
           </div>
 
-          <div ref={chartContainerRef} style={{ width: "100%", height: "300px", marginBottom: "20px", background: "#0d1117", borderRadius: "8px", border: "1px solid #30363d", overflow: "hidden" }} />
+          {showChart && (
+            <div 
+              ref={chartContainerRef} 
+              style={{ 
+                width: "100%", 
+                height: "300px", 
+                marginBottom: "20px", 
+                background: "#0d1117", 
+                borderRadius: "8px", 
+                border: "1px solid #30363d", 
+                overflow: "hidden" 
+              }} 
+            />
+          )}
 
           {loading ? <div style={{ color: "#8b949e" }}>Loading...</div> : dfData ? (
             <>
               <div style={{ display: "flex", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
                 <div className="metric-box"><div className="metric-label">Candles</div><div className="metric-value">{dfData.candle_count || 0}</div></div>
                 <div className="metric-box"><div className="metric-label">Last Candle</div><div className="metric-value" style={{ fontSize: "14px" }}>{dfData.last_candle || "-"}</div></div>
+                <div className="metric-box">
+                  <div className="metric-label">Next Refresh</div>
+                  <div className="metric-value" style={{ color: countdown < 10 ? "#ff7b72" : "#a5d6ff" }}>{countdown}s</div>
+                </div>
                 <div className="metric-box"><div className="metric-label">Showing</div><div className="metric-value">{Math.min(rowsToShow, dfData.data?.length || 0)}</div></div>
               </div>
               {dfData.data?.length > 0 ? (

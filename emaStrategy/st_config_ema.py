@@ -12,14 +12,10 @@ from configuration.base_config import *
 def get_kite_session():
     from kiteconnect import KiteConnect
 
-    if not API_KEY or not os.path.exists(ACCESS_TOKEN_FILE):
+    if not API_KEY or not ACCESS_TOKEN:
         return None
     kite = KiteConnect(api_key=API_KEY, timeout=30)
-    with open(ACCESS_TOKEN_FILE, "r") as f:
-        token = f.read().strip()
-    if not token:
-        return None
-    kite.set_access_token(token)
+    kite.set_access_token(ACCESS_TOKEN)
     try:
         kite.profile()
         return kite

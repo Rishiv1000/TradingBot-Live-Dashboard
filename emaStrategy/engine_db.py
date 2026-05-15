@@ -4,7 +4,8 @@ import sys
 
 STRATEGY_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(STRATEGY_DIR, ".."))
-sys.path.append(ROOT_DIR)
+if STRATEGY_DIR not in sys.path: sys.path.insert(0, STRATEGY_DIR)
+if ROOT_DIR not in sys.path: sys.path.insert(0, ROOT_DIR)
 
 import st_config_ema
 

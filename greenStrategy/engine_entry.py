@@ -5,94 +5,76 @@ import time
 import threading
 from datetime import datetime
 
-import mysql.connector
-import pandas as pd
-
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, BASE_DIR)
+STRATEGY_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.abspath(os.path.join(STRATEGY_DIR, ".."))
+if STRATEGY_DIR not in sys.path: sys.path.insert(0, STRATEGY_DIR)
+if ROOT_DIR not in sys.path: sys.path.insert(0, ROOT_DIR)
 
 import st_config_green
-from engine_symbol_data import build_green_dataframe, fetch_runtime_symbols, update_symbol_dataframe_cache
-from configuration.candle_data import interval_minutes
+from api_shared import db_fetchall, db_exec
+from engine_symbol_data import build_green_dataframe, refresh_all_green_data
 from configuration.order_manager import place_real_buy
 
-
 BOT_START_TIME = datetime.now()
+SYMBOLS_TABLE  = getattr(st_config_green, "SYMBOLS_TABLE", "green_symbols_live")
 
 
 class EntryEngine:
     def __init__(self, kite, df_cache):
         self.kite = kite
         self.df_cache = df_cache
-        # symbol → timestamp of last rejection (for cooldown)
         self._rejected_until: dict = {}
-        self.REJECTION_COOLDOWN_SEC = 300  # 5 minutes
-        # symbol → timestamp of last failed signal (max 1 attempt)
+        self.REJECTION_COOLDOWN_SEC = 300
         self._failed_signal: dict = {}
-        self.SIGNAL_COOLDOWN_SEC = 0  # not time based, just until new signal
 
+    def start(self):
+        print("[GREEN-LIVE] Starting Entry Engine...")
+        threading.Thread(target=self._run_loop, daemon=True).start()
 
-    def _db_connection(self):
-        return mysql.connector.connect(
-            host=st_config_green.DB_HOST,
-            user=st_config_green.DB_USER,
-            password=st_config_green.DB_PASSWORD,
-            database=st_config_green.DB_NAME,
-        )
+    def _run_loop(self):
+        while True:
+            try:
+                self.run_cycle()
+            except Exception as e:
+                print(f"[GREEN-ENTRY] Loop error: {e}")
+            time.sleep(15)
 
     def _is_in_cooldown(self, symbol) -> bool:
         until = self._rejected_until.get(symbol)
         if until and time.time() < until:
             remaining = int(until - time.time())
-            print(f"[GREEN] ⏸️ {symbol} in rejection cooldown — {remaining}s remaining, skipping.")
+            print(f"[GREEN] ⏸️ {symbol} in rejection cooldown — {remaining}s remaining.")
             return True
         return False
 
     def _set_cooldown(self, symbol):
         self._rejected_until[symbol] = time.time() + self.REJECTION_COOLDOWN_SEC
-        print(f"[GREEN] ⏸️ {symbol} cooldown set for {self.REJECTION_COOLDOWN_SEC}s (order rejected).")
+        print(f"[GREEN] ⏸️ {symbol} cooldown set for {self.REJECTION_COOLDOWN_SEC}s.")
 
     def _check_signal(self, symbol, df, last_sell_time=None):
-        # Need at least 3 rows: 2 completed candles + 1 forming candle
         if df is None or len(df) < 3:
             return False
-
-        # Last 2 completed candles (excluding the forming candle at -1)
         completed = df.iloc[-3:-1]
-
-        # Signal timestamp = last completed candle's date
         signal_ts = str(df.iloc[-2]["date"]) if "date" in df.columns else None
-
-        # If this exact signal was already attempted and failed, skip
-        if signal_ts is not None and self._failed_signal.get(symbol) == signal_ts:
-            print(f"[GREEN] ⏭️ {symbol} — same signal already attempted ({signal_ts}), waiting for new candles.")
+        if signal_ts and self._failed_signal.get(symbol) == signal_ts:
+            print(f"[GREEN] ⏭️ {symbol} — same signal already attempted ({signal_ts}).")
             return False
-
-        # Check: both completed candles must be GREEN
         if not all(completed["candle_color"] == "GREEN"):
             return False
-
-        # Signal is valid — clear any old failure record
         self._failed_signal.pop(symbol, None)
         return True
 
-    def _mark_entry(self, symbol, buy_price, buy_time, order_id, product):
-        conn = self._db_connection()
-        cursor = conn.cursor()
-        symbols_table = getattr(config, "SYMBOLS_TABLE", "symbols_green")
-        cursor.execute(
-            f"UPDATE {symbols_table} SET isExecuted=1, buyprice=%s, buytime=%s, buy_order_id=%s, product=%s WHERE symbol=%s",
-            (buy_price, buy_time, order_id, product, symbol),
+    def _mark_entry(self, symbol, token, buy_price, buy_time, order_id, product):
+        db_exec(
+            f"UPDATE {SYMBOLS_TABLE} SET isExecuted=1, buyprice=%s, buytime=%s, buy_order_id=%s, product=%s WHERE instrument_token=%s",
+            (buy_price, buy_time, order_id, product, token)
         )
-        conn.commit()
-        conn.close()
 
-    def _verify_and_mark(self, symbol, exchange, order_id, buy_price, signal_time):
-        """Background thread — waits for order fill, marks entry. Does NOT block other symbols."""
+    def _verify_and_mark(self, symbol, token, exchange, order_id, buy_price, signal_time):
         try:
             final_buy_price = buy_price
             order_filled = False
-            for attempt in range(6):  # retry up to 6 times (~17s total)
+            for attempt in range(6):
                 time.sleep(2 if attempt == 0 else 3)
                 for state in reversed(self.kite.order_history(order_id)):
                     if state["status"] == "COMPLETE":
@@ -101,100 +83,92 @@ class EntryEngine:
                             final_buy_price = float(state["average_price"])
                         break
                     elif state["status"] in ("CANCELLED", "REJECTED"):
-                        print(f"[GREEN] ❌ BUY order {order_id} {state['status']} for {symbol} — NOT marking entry.")
+                        print(f"[GREEN] ❌ BUY order {order_id} {state['status']} for {symbol}.")
                         self._failed_signal[symbol] = str(signal_time)
+                        self._set_cooldown(symbol)
                         return
                 if order_filled:
                     break
-                print(f"[GREEN] ⏳ {symbol} order still pending (attempt {attempt+1}/6)...")
+                print(f"[GREEN] ⏳ {symbol} order pending (attempt {attempt+1}/6)...")
 
             if not order_filled:
-                print(f"[GREEN] ⚠️ {symbol} order not filled after retries — NOT marking entry.")
+                print(f"[GREEN] ⚠️ {symbol} order not filled after retries.")
                 self._failed_signal[symbol] = str(signal_time)
                 return
 
-            self._mark_entry(symbol, final_buy_price, str(signal_time), str(order_id), "MIS")
+            self._mark_entry(symbol, token, final_buy_price, str(signal_time), str(order_id), "MIS")
             buy_slippage = round(final_buy_price - buy_price, 2)
             print(f"[GREEN] ✅ Entry marked: {symbol} @ {final_buy_price} | BUY slippage: ₹{buy_slippage}")
         except Exception as e:
             print(f"[GREEN] ⚠️ Verify failed for {symbol}: {e} — marking entry to be safe.")
-            self._mark_entry(symbol, buy_price, str(signal_time), str(order_id), "MIS")
+            self._mark_entry(symbol, token, buy_price, str(signal_time), str(order_id), "MIS")
 
-    def perform_buy(self, symbol, exchange, buy_price, signal_time):
+    def perform_buy(self, symbol, token, exchange, buy_price, signal_time):
         order_id = place_real_buy(
             self.kite,
             symbol,
-            quantity=getattr(config, "DEFAULT_QTY", 1),
+            quantity=getattr(st_config_green, "DEFAULT_QTY", 1),
             exchange=exchange,
-            config=config,
+            config=st_config_green,
         )
-
         if not order_id:
-            print(f"[GREEN] BUY skipped for {symbol} — order not placed.")
+            print(f"[GREEN] BUY skipped for {symbol}.")
             self._failed_signal[symbol] = str(signal_time)
             return
 
         if str(order_id).startswith("SIMULATED"):
-            self._mark_entry(symbol, buy_price, str(signal_time), str(order_id), "MIS")
+            self._mark_entry(symbol, token, buy_price, str(signal_time), str(order_id), "MIS")
             return
 
-        # Fire background thread — other symbols continue without waiting
         threading.Thread(
             target=self._verify_and_mark,
-            args=(symbol, exchange, order_id, buy_price, signal_time),
+            args=(symbol, token, exchange, order_id, buy_price, signal_time),
             daemon=True,
         ).start()
-        print(f"[GREEN] 🔄 {symbol} order {order_id} placed — verifying fill in background...")
-
+        print(f"[GREEN] 🔄 {symbol} order {order_id} placed — verifying in background...")
 
     def run_cycle(self):
         now = datetime.now().strftime("%H:%M:%S")
-        symbols_checked = 0
 
-        # Single DB query for all symbols at once
-        symbols_table = getattr(config, "SYMBOLS_TABLE", "symbols_green")
-        conn = self._db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute(f"SELECT * FROM {symbols_table}")
-        all_rows = {r["symbol"]: r for r in cursor.fetchall()}
-        conn.close()
+        # Single DB query — all symbols
+        all_rows_list = db_fetchall(f"SELECT * FROM {SYMBOLS_TABLE}")
+        all_rows = {r["symbol"]: r for r in all_rows_list}
 
-        for item in fetch_runtime_symbols(self.kite):
-            symbol, token, exchange = item["symbol"], item["token"], item["exchange"]
+        for symbol, row in all_rows.items():
+            token    = row.get("instrument_token")
+            exchange = row.get("exchange", "NSE")
+
             if not token:
-                print(f"[{now}] [GREEN] ⚠️ {symbol}: instrument_token missing, skipping.")
+                print(f"[{now}] [GREEN] ⚠️ {symbol}: token missing, skipping.")
                 continue
-
-            row = all_rows.get(symbol)
-            if not row or row["isExecuted"] == 1:
+            if row.get("isExecuted") == 1:
                 continue
-
-            # Skip symbols in rejection cooldown
             if self._is_in_cooldown(symbol):
                 continue
 
-            symbols_checked += 1
             try:
-                new_df = build_green_dataframe(self.kite, token)
-                df = update_symbol_dataframe_cache(self.df_cache, symbol, new_df)
+                df = self.df_cache.get(token)
+                if df is None or df.empty:
+                    continue
             except Exception as e:
-                print(f"[{now}] [GREEN] ❌ Error fetching {symbol}: {e}")
+                print(f"[{now}] [GREEN] ❌ Cache error {symbol}: {e}")
                 continue
 
-            # Use new signature: symbol, df, last_sell_time
-            if self._check_signal(symbol, df, row["last_sell_time"]):
-                candles = len(df) if df is not None else 0
+            if self._check_signal(symbol, df, row.get("last_sell_time")):
+                candles = len(df)
                 print(f"[{now}] [GREEN] 🟢 SIGNAL {symbol} | candles:{candles} → BUY")
-                self.perform_buy(symbol, exchange, float(df.iloc[-1]["close"]), str(df.iloc[-1]["date"]))
+                self.perform_buy(symbol, token, exchange, float(df.iloc[-1]["close"]), str(df.iloc[-1]["date"]))
             else:
                 if df is not None and len(df) >= 3:
-                    completed = df.iloc[-3:-1]
-                    colors = list(completed["candle_color"])
-                    candles = len(df)
-                    print(f"[{now}] [GREEN] {symbol} | last 2: {colors} | candles:{candles}")
+                    colors = list(df.iloc[-3:-1]["candle_color"])
+                    print(f"[{now}] [GREEN] {symbol} | last 2: {colors} | candles:{len(df)}")
 
-        cache_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "live_df_cache.pkl")
-        temp_file = cache_file + ".tmp"
-        with open(temp_file, "wb") as f:
-            pickle.dump(self.df_cache, f)
-        os.replace(temp_file, cache_file)
+        # Save token-keyed PKL
+        try:
+            cache_file = os.path.join(STRATEGY_DIR, "live_df_cache.pkl")
+            tmp = cache_file + ".tmp"
+            with open(tmp, "wb") as f:
+                pickle.dump(self.df_cache, f)
+            os.replace(tmp, cache_file)
+        except Exception as e:
+            print(f"[GREEN] ⚠️ PKL save error: {e}")

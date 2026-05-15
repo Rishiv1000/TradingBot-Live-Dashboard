@@ -1,71 +1,70 @@
 import os
 import sys
+import pickle
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-import mysql.connector
-
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, BASE_DIR)
+STRATEGY_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.abspath(os.path.join(STRATEGY_DIR, ".."))
+if STRATEGY_DIR not in sys.path: sys.path.insert(0, STRATEGY_DIR)
+if ROOT_DIR not in sys.path: sys.path.insert(0, ROOT_DIR)
 
 import st_config_green
-from configuration.candle_data import (
-    build_symbol_dataframe,
-    fetch_symbol_candles,
-    update_symbol_dataframe_cache,
-)
+from api_shared import db_fetchall
+from configuration.candle_data import fetch_symbol_candles, build_symbol_dataframe, interval_minutes
 
-# ── In-memory symbol cache ────────────────────────────────────────────────────
-# Loaded once at startup, refreshed when RELOAD_SIGNAL_FILE exists
-RELOAD_SIGNAL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".reload_symbols")
-_symbol_cache = []
-_cache_loaded = False
+def get_green_smart_sleep(buffer_sec=3):
+    ist = ZoneInfo("Asia/Kolkata")
+    now = datetime.now(ist)
+    interval = interval_minutes(st_config_green.TIMEFRAME)
+    minutes_now = now.hour * 60 + now.minute
+    remaining = (interval * 60) - ((minutes_now % interval) * 60 + now.second)
+    if remaining <= 0: return interval * 60
+    return remaining + buffer_sec
 
+def build_green_dataframe(kite, token, days=None):
+    try:
+        if days is None:
+            days = st_config_green.LOOKBACK_DAYS_GREEN
+        tf = st_config_green.TIMEFRAME
+        records = fetch_symbol_candles(kite, token, days=days, timeframe=tf)
+        df = build_symbol_dataframe(records)
+        if df is None or df.empty: return None
 
-def _load_symbols_from_db():
-    global _symbol_cache, _cache_loaded
-    conn = mysql.connector.connect(
-        host=st_config_green.DB_HOST,
-        user=st_config_green.DB_USER,
-        password=st_config_green.DB_PASSWORD,
-        database=st_config_green.DB_NAME,
-    )
-    cursor = conn.cursor(dictionary=True)
-    symbols_table = getattr(config, "SYMBOLS_TABLE", "symbols_green")
-    limit = getattr(config, "MAX_SYMBOLS_PER_CYCLE", 50)
-    cursor.execute(
-        f"SELECT symbol, instrument_token AS token, exchange FROM {symbols_table} LIMIT %s",
-        (limit,),
-    )
-    _symbol_cache = cursor.fetchall()
-    conn.close()
-    _cache_loaded = True
-    print(f"[GREEN] Symbol cache loaded: {[s['symbol'] for s in _symbol_cache]}")
-    return _symbol_cache
+        # Cap to MAX_CANDLES — flush older rows to prevent memory bloat
+        max_candles = getattr(st_config_green, "MAX_CANDLES", 500)
+        if len(df) > max_candles:
+            df = df.tail(max_candles).reset_index(drop=True)
 
+        return df
+    except Exception as e:
+        print(f"Error building Green DF for token {token}: {e}")
+        return None
 
-def fetch_runtime_symbols(kite):
-    global _cache_loaded
-    # Check if dashboard requested a reload
-    if os.path.exists(RELOAD_SIGNAL_FILE):
-        try:
-            os.remove(RELOAD_SIGNAL_FILE)
-        except Exception:
-            pass
-        _cache_loaded = False
-        print("[GREEN] Symbol cache reload triggered.")
+def refresh_all_green_data(kite, df_cache):
+    sec = get_green_smart_sleep()
+    print(f"[GREEN-LIVE] 😴 Waiting {sec}s for next candle...")
+    time.sleep(sec)
 
-    if not _cache_loaded:
-        _load_symbols_from_db()
+    table = st_config_green.SYMBOLS_TABLE
+    symbols = db_fetchall(f"SELECT instrument_token FROM {table}")
 
-    return _symbol_cache
+    new_cache = {}
+    for row in symbols:
+        token = row['instrument_token']
+        if not token: continue
+        df = build_green_dataframe(kite, token)
+        if df is not None:
+            new_cache[token] = df
 
+    df_cache.clear()
+    df_cache.update(new_cache)
 
-def build_green_dataframe(kite, token):
-    records = fetch_symbol_candles(
-        kite,
-        token,
-        days=getattr(config, "LOOKBACK_DAYS", 3.0),
-        timeframe=getattr(config, "TIMEFRAME", "minute"),
-    )
-    df = build_symbol_dataframe(records)
-    return df 
+    try:
+        cache_file = os.path.join(STRATEGY_DIR, "live_df_cache.pkl")
+        with open(cache_file, "wb") as f:
+            pickle.dump(df_cache, f)
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] 📊 [GREEN-LIVE] Data Refreshed & PKL Saved.")
+    except Exception as e:
+        print(f"⚠️ [GREEN-LIVE] Cache save error: {e}")

@@ -80,3 +80,31 @@ def update_symbol_dataframe_cache(cache, symbol, df, rows=200):
     else:
         cache[symbol] = df.tail(rows).reset_index(drop=True)
     return cache[symbol]
+
+def get_smart_sleep_seconds(timeframe, buffer_sec=3):
+    """Calculate seconds to sleep until the current candle closes, using IST timezone."""
+    # Market operates in IST
+    ist = ZoneInfo("Asia/Kolkata")
+    now = datetime.now(ist)
+    
+    interval = interval_minutes(timeframe)
+    
+    # Total minutes from beginning of day in IST
+    minutes_now = now.hour * 60 + now.minute
+    
+    # In Indian market, candles are usually synced to 00:00 (e.g. 09:15, 09:20 for 5m)
+    # minutes_now % interval gives how many minutes passed in the CURRENT candle
+    minutes_into_candle = minutes_now % interval
+    seconds_now = now.second
+    
+    total_sec_into_candle = (minutes_into_candle * 60) + seconds_now
+    total_sec_in_interval = interval * 60
+    
+    remaining = total_sec_in_interval - total_sec_into_candle
+    
+    # Safety: If we are exactly at the boundary, wait for the full next interval
+    if remaining <= 0:
+        remaining = total_sec_in_interval
+        
+    # We add a buffer to ensure the broker has finalized the candle data
+    return int(remaining + buffer_sec)

@@ -4,6 +4,10 @@ configuration/.env
 configuration/access_token.txt
 dashboard-ui/.env
 dashboard-ui/.env.local
+dashboard-ui/package-lock.json
+dashboard-ui/node_modules/
+dashboard-ui/dist/
+node_modules
 
 # ── Python ────────────────────────────────────────────────────
 __pycache__/
@@ -17,11 +21,6 @@ logs/*.log
 */.reload_symbols
 */live_df_cache.pkl
 .live_pids
-
-# ── UI ────────────────────────────────────────────────────────
-dashboard-ui/node_modules/
-dashboard-ui/dist/
-node_modules
 
 # ── IDE/OS ────────────────────────────────────────────────────
 .vscode/

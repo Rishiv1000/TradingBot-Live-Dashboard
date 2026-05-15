@@ -22,41 +22,22 @@ except ImportError:
 import st_config_green
 from engine_entry import EntryEngine
 from engine_exit import ExitEngine
-from configuration.candle_data import interval_minutes
+from configuration.candle_data import get_smart_sleep_seconds
 
 
-def generate_or_load_session():
-    kite = KiteConnect(api_key=st_config_green.API_KEY, timeout=30)
-    if os.path.exists(st_config_green.ACCESS_TOKEN_FILE):
-        with open(st_config_green.ACCESS_TOKEN_FILE, "r") as f:
-            access_token = f.read().strip()
-        if access_token:
-            kite.set_access_token(access_token)
-            try:
-                kite.profile()
-                print("Kite session active.")
-                return kite
-            except Exception:
-                pass
-    raise ConnectionError("No valid Kite session. Login from dashboard first.")
-
-
-def smart_sleep():
-    timeframe = getattr(config, "TIMEFRAME", "minute")
-    interval = interval_minutes(timeframe)
-    now = datetime.now()
-    total_seconds = now.hour * 3600 + now.minute * 60 + now.second
-    next_boundary = ((total_seconds // (interval * 60)) + 1) * (interval * 60)
-    sleep_time = max(1, next_boundary - total_seconds - 3)
-    time.sleep(sleep_time)
+def smart_sleep_wait():
+    tf = getattr(st_config_green, "TIMEFRAME", "minute")
+    sec = get_smart_sleep_seconds(tf)
+    print(f"😴 [GREEN] Sleeping {sec}s until next candle refresh.")
+    time.sleep(sec)
 
 
 def main():
-    print("Starting GREEN strategy project...")
+    print("🚀 Starting GREEN Strategy Runner (LIVE)...")
     start_strategy_capture("GREEN")
 
     # ── SAFETY LOCK ──────────────────────────────────────────────────────────
-    if not getattr(config, "REAL_TRADING_ENABLED", False):
+    if not getattr(st_config_green, "REAL_TRADING_ENABLED", False):
         print("🔒 [GREEN] BLOCKED: REAL_TRADING_ENABLED = False in base_config.py")
         print("🔒 [GREEN] Set REAL_TRADING_ENABLED = True in configuration/base_config.py to unlock.")
         stop_strategy_capture("GREEN")
@@ -64,7 +45,9 @@ def main():
     # ─────────────────────────────────────────────────────────────────────────
 
     try:
-        kite = generate_or_load_session()
+        kite = st_config_green.get_kite_session()
+        if not kite:
+            raise ConnectionError("No valid Kite session. Login from dashboard first.")
 
         exit_engine = ExitEngine(kite)
         threading.Thread(target=exit_engine.start_monitoring, daemon=True).start()
@@ -73,9 +56,9 @@ def main():
         entry_engine = EntryEngine(kite, df_cache)
 
         while True:
-            importlib.reload(config)
+            importlib.reload(st_config_green)
             entry_engine.run_cycle()
-            smart_sleep()
+            smart_sleep_wait()
     finally:
         # Stop terminal capture
         stop_strategy_capture("GREEN")

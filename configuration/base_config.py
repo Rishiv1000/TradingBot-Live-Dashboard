@@ -12,8 +12,17 @@ load_dotenv(env_path)
 # --- [SYSTEM & AUTH] ---
 API_KEY           = os.getenv("KITE_API_KEY")
 API_SECRET        = os.getenv("KITE_API_SECRET")
-ACCESS_TOKEN_FILE = os.path.join(CONFIG_DIR, "access_token.txt")
-LOGS_DIR          = os.path.join(PROJECT_ROOT, "logs")
+ACCESS_TOKEN      = os.getenv("KITE_ACCESS_TOKEN")
+LOGS_DIR          = os.path.join(PROJECT_ROOT, "others", "logs")
+BACKTEST_RESULTS_DIR = os.path.join(PROJECT_ROOT, "others", "backtest_results")
+
+# Credential Validation
+if not API_KEY:
+    print("⚠️ WARNING: KITE_API_KEY is missing in .env")
+if not API_SECRET:
+    print("⚠️ WARNING: KITE_API_SECRET is missing in .env")
+if not ACCESS_TOKEN:
+    print("ℹ️ INFO: KITE_ACCESS_TOKEN is missing (Login required)")
 
 # --- [DASHBOARD & API PORTS] ---
 DASHBOARD_PORT = 5173
