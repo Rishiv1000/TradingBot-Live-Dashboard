@@ -13,9 +13,9 @@ sys.path.insert(0, PROJECT_ROOT)
 
 import st_config_green
 
-STRATEGY_NAME           = getattr(config, "STRATEGY_NAME", "GREEN")
-SYMBOLS_LIVE_TBL        = getattr(config, "GREEN_SYMBOLS_LIVE_TBL", "green_symbols_live")
-TRADES_LIVE_TBL         = getattr(config, "GREEN_TRADES_LIVE_TBL", "green_trades_live")
+STRATEGY_NAME           = getattr(st_config_green, "STRATEGY_NAME", "GREEN")
+SYMBOLS_LIVE_TBL        = getattr(st_config_green, "GREEN_SYMBOLS_LIVE_TBL", "green_symbols_live")
+TRADES_LIVE_TBL         = getattr(st_config_green, "GREEN_TRADES_LIVE_TBL", "green_trades_live")
 
 def _db(database=None):
     return mysql.connector.connect(

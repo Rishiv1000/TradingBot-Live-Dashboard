@@ -108,6 +108,28 @@ def get_frontend_log():
     with open(log_path, "r", encoding="utf-8", errors="replace") as f:
         return {"lines": "".join(f.readlines()[-300:])}
 
+@app.post("/api/setup-db")
+def setup_db():
+    try:
+        from emaStrategy.engine_db import setup_db as ema_setup
+        from greenStrategy.engine_db import setup_table as green_setup
+        ema_setup()
+        green_setup()
+        return {"success": True, "message": "Database tables created successfully."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/set-defaults")
+def set_defaults():
+    try:
+        from emaStrategy.engine_db import reset_positions as ema_reset
+        from greenStrategy.engine_db import reset_positions as green_reset
+        ema_reset()
+        green_reset()
+        return {"success": True, "message": "Positions reset successfully."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 # ── Include Strategy Routers ──────────────────────────────────────────────────
 from emaStrategy.endpoints_ema import router as ema_router
 from greenStrategy.endpoints_green import router as green_router

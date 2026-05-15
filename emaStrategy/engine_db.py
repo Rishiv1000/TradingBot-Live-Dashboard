@@ -17,9 +17,9 @@ def setup_db():
         database=st_config_ema.DB_NAME
     )
     cursor = conn.cursor()
-    STRATEGY_NAME           = getattr(config, "STRATEGY_NAME")
-    EMA_SYMBOLS_LIVE_TBL    = getattr(config, "EMA_SYMBOLS_LIVE_TBL")
-    EMA_TRADES_LIVE_TBL     = getattr(config, "EMA_TRADES_LIVE_TBL")
+    STRATEGY_NAME           = getattr(st_config_ema, "STRATEGY_NAME")
+    EMA_SYMBOLS_LIVE_TBL    = getattr(st_config_ema, "EMA_SYMBOLS_LIVE_TBL")
+    EMA_TRADES_LIVE_TBL     = getattr(st_config_ema, "EMA_TRADES_LIVE_TBL")
 
     print(f"[{STRATEGY_NAME}] Setting up database tables...")
 
@@ -79,7 +79,7 @@ def reset_positions():
         database=st_config_ema.DB_NAME
     )
     cursor = conn.cursor()
-    EMA_SYMBOLS_LIVE_TBL = getattr(config, "EMA_SYMBOLS_LIVE_TBL")
+    EMA_SYMBOLS_LIVE_TBL = getattr(st_config_ema, "EMA_SYMBOLS_LIVE_TBL")
     cursor.execute(f"UPDATE {EMA_SYMBOLS_LIVE_TBL} SET isExecuted=0, buy_price=NULL, buy_time=NULL, buy_order_id=NULL")
     conn.commit()
     conn.close()
@@ -87,3 +87,4 @@ def reset_positions():
 
 if __name__ == "__main__":
     setup_db()
+
