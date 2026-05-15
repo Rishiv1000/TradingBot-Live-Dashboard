@@ -8,8 +8,8 @@ STRATEGY_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(STRATEGY_DIR, ".."))
 sys.path.append(ROOT_DIR)
 
-import st_config_ema as config
-from config.candle_data import fetch_symbol_candles, build_symbol_dataframe
+import st_config_ema
+from configuration.candle_data import fetch_symbol_candles, build_symbol_dataframe
 
 RELOAD_SIGNAL_FILE = os.path.join(STRATEGY_DIR, ".reload_symbols")
 _symbol_cache = []
@@ -27,7 +27,7 @@ def check_ema_entry_signal(df):
         trigger_price = signal_row["close"]
         
         try:
-            short_gap = config.EMA_SHORT_GAP
+            short_gap = st_config_ema.EMA_SHORT_GAP
         except AttributeError:
             short_gap = 0.5
             
@@ -52,8 +52,8 @@ def check_ema_exit_signal(df, trade, live_price):
 def build_ema_dataframe(kite, token, days=None):
     try:
         if days is None:
-            days = config.EMA_LOOKBACK_DAYS
-        tf = config.EMA_TIMEFRAME
+            days = st_config_ema.EMA_LOOKBACK_DAYS
+        tf = st_config_ema.EMA_TIMEFRAME
         
         records = fetch_symbol_candles(kite, token, days=days, timeframe=tf)
         df = build_symbol_dataframe(records)
@@ -85,13 +85,13 @@ def _load_symbols_from_db():
     import mysql.connector
     try:
         conn = mysql.connector.connect(
-            host=config.DB_HOST,
-            user=config.DB_USER,
-            password=config.DB_PASSWORD,
-            database=config.DB_NAME
+            host=st_config_ema.DB_HOST,
+            user=st_config_ema.DB_USER,
+            password=st_config_ema.DB_PASSWORD,
+            database=st_config_ema.DB_NAME
         )
         cursor = conn.cursor(dictionary=True)
-        table = config.EMA_SYMBOLS_LIVE_TBL
+        table = st_config_ema.EMA_SYMBOLS_LIVE_TBL
         cursor.execute(f"SELECT symbol, instrument_token as token, exchange FROM {table}")
         symbols = cursor.fetchall()
         conn.close()

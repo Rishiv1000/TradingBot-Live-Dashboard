@@ -7,7 +7,6 @@ from typing import Optional
 
 import mysql.connector
 import psutil
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,7 +19,7 @@ if BASE_DIR not in sys.path:
 
 
 try:
-    from config.base_config import (
+    from configuration.base_config import (
         API_KEY, API_SECRET, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME,
         ACCESS_TOKEN_FILE, LOGS_DIR, REAL_TRADING_ENABLED
     )
@@ -189,24 +188,34 @@ def get_status():
             cur.execute(f"SELECT COUNT(*) FROM {meta['table']} WHERE isExecuted=1"); open_count = cur.fetchone()[0]
             conn.close()
         except: sym_count = open_count = 0
-        result[strategy] = {"running": cache.get(strategy) is not None, "symbol_count": sym_count, "open_count": open_count, "color": meta["color"]}
+        result[strategy] = {
+            "running": cache.get(strategy) is not None,
+            "symbol_count": sym_count,
+            "open_count": open_count,
+            "color": meta["color"],
+            "trading_enabled": REAL_TRADING_ENABLED,
+        }
     return result
 
 @app.get("/api/kite/status")
 def kite_status(): return {"logged_in": kite_logged_in()}
 
+@app.get("/api/kite/login_url")
+def kite_login_url():
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="API_KEY not configured")
+    from kiteconnect import KiteConnect
+    return {"url": KiteConnect(api_key=API_KEY).login_url()}
+
 @app.get("/api/config/trading")
 def get_trading_config():
-    # Re-import to get fresh value if changed on disk
-    import importlib
-    import config.base_config
-    importlib.reload(config.base_config)
-    return {"real_trading_enabled": config.base_config.REAL_TRADING_ENABLED}
+    return {"real_trading_enabled": REAL_TRADING_ENABLED}
 
 @app.post("/api/config/trading")
 def update_trading_config(body: TradingConfigRequest):
+    global REAL_TRADING_ENABLED
     try:
-        config_path = os.path.join(BASE_DIR, "config", "base_config.py")
+        config_path = os.path.join(BASE_DIR, "configuration", "base_config.py")
         with open(config_path, "r") as f:
             lines = f.readlines()
         
@@ -225,12 +234,8 @@ def update_trading_config(body: TradingConfigRequest):
         with open(config_path, "w") as f:
             f.writelines(new_lines)
             
-        # Also update in memory
-        import importlib
-        import config.base_config
-        importlib.reload(config.base_config)
-        
-        return {"success": True, "real_trading_enabled": body.real_trading_enabled}
+        REAL_TRADING_ENABLED = body.real_trading_enabled
+        return {"success": True, "real_trading_enabled": REAL_TRADING_ENABLED}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -243,6 +248,56 @@ def kite_session(body: SessionRequest):
         with open(ACCESS_TOKEN_FILE, "w") as f: f.write(data["access_token"])
         return {"success": True}
     except Exception as e: return {"success": False, "error": str(e)}
+
+@app.post("/api/set-defaults")
+def set_defaults():
+    kite = get_kite()
+    if not kite:
+        raise HTTPException(status_code=401, detail="Kite session missing")
+    updated = 0
+    errors = []
+    for strategy, meta in STRATEGIES.items():
+        table = meta["table"]
+        try:
+            rows = db_fetchall(
+                f"SELECT symbol, exchange, instrument_token FROM {table} "
+                "WHERE instrument_token IS NULL OR instrument_token=0"
+            )
+            for row in rows:
+                symbol = row["symbol"].upper()
+                exchange = (row.get("exchange") or "NSE").upper()
+                inst = f"{exchange}:{symbol}"
+                token = kite.ltp(inst)[inst]["instrument_token"]
+                db_exec(
+                    f"UPDATE {table} SET exchange=%s, instrument_token=%s WHERE symbol=%s",
+                    (exchange, token, symbol),
+                )
+                updated += 1
+        except Exception as e:
+            errors.append(f"{strategy}: {e}")
+    return {"success": not errors, "updated": updated, "error": "; ".join(errors) if errors else ""}
+
+@app.get("/api/logs/backend")
+def get_backend_logs():
+    log_path = os.path.join(LOGS_DIR, "api.log")
+    if not os.path.exists(log_path): return {"lines": "No backend log found."}
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        return {"lines": "".join(lines[-200:]) or "Log is empty."}
+    except Exception as e:
+        return {"lines": f"Error: {e}"}
+
+@app.get("/api/logs/frontend")
+def get_frontend_logs():
+    log_path = os.path.join(LOGS_DIR, "vite.log")
+    if not os.path.exists(log_path): return {"lines": "No frontend log found."}
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        return {"lines": "".join(lines[-200:]) or "Log is empty."}
+    except Exception as e:
+        return {"lines": f"Error: {e}"}
 
 def get_symbols(strategy: str):
     strategy = strategy.upper()

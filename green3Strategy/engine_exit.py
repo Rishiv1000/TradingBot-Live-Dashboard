@@ -10,8 +10,8 @@ from kiteconnect import KiteTicker
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, BASE_DIR)
 
-import st_config_green3 as config
-from config.order_manager import place_real_sell
+import st_config_green3
+from configuration.order_manager import place_real_sell
 
 
 class ExitEngine:
@@ -28,10 +28,10 @@ class ExitEngine:
 
     def _db_connection(self):
         return mysql.connector.connect(
-            host=config.DB_HOST,
-            user=config.DB_USER,
-            password=config.DB_PASSWORD,
-            database=config.DB_NAME,
+            host=st_config_green3.DB_HOST,
+            user=st_config_green3.DB_USER,
+            password=st_config_green3.DB_PASSWORD,
+            database=st_config_green3.DB_NAME,
         )
 
     def _fetch_open_positions(self):
@@ -70,7 +70,7 @@ class ExitEngine:
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (row["symbol"], row["buytime"], row["buyprice"], datetime.now(),
              sell_price, pnl, reason, total_slippage,
-             str(row["buy_order_id"]), str(sell_order_id), config.STRATEGY_NAME),
+             str(row["buy_order_id"]), str(sell_order_id), st_config_green3.STRATEGY_NAME),
         )
         cursor.execute(
             f"UPDATE {symbols_table} SET isExecuted=0, buyprice=NULL, buytime=NULL, buy_order_id=NULL, product=NULL, last_sell_time=%s WHERE symbol=%s",
@@ -185,7 +185,7 @@ class ExitEngine:
             self.state["processing"].discard(row["buy_order_id"])
 
     def start_monitoring(self):
-        kws = KiteTicker(config.API_KEY, self.kite.access_token)
+        kws = KiteTicker(st_config_green3.API_KEY, self.kite.access_token)
 
         def on_ticks(_ws, ticks):
             for tick in ticks:

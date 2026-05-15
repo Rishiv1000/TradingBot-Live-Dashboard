@@ -11,7 +11,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(STRATEGY_DIR, ".."))
 sys.path.insert(0, STRATEGY_DIR)
 sys.path.insert(0, PROJECT_ROOT)
 
-import st_config_green as config
+import st_config_green
 
 STRATEGY_NAME           = getattr(config, "STRATEGY_NAME", "GREEN")
 SYMBOLS_LIVE_TBL        = getattr(config, "GREEN_SYMBOLS_LIVE_TBL", "green_symbols_live")
@@ -19,17 +19,17 @@ TRADES_LIVE_TBL         = getattr(config, "GREEN_TRADES_LIVE_TBL", "green_trades
 
 def _db(database=None):
     return mysql.connector.connect(
-        host=config.DB_HOST, user=config.DB_USER, password=config.DB_PASSWORD,
+        host=st_config_green.DB_HOST, user=st_config_green.DB_USER, password=st_config_green.DB_PASSWORD,
         **({"database": database} if database else {}),
     )
 
 def setup_table():
-    print(f"[{STRATEGY_NAME}] Setting up: {config.DB_NAME}.{SYMBOLS_LIVE_TBL} and {TRADES_LIVE_TBL}")
+    print(f"[{STRATEGY_NAME}] Setting up: {st_config_green.DB_NAME}.{SYMBOLS_LIVE_TBL} and {TRADES_LIVE_TBL}")
     conn = _db()
-    conn.cursor().execute(f"CREATE DATABASE IF NOT EXISTS {config.DB_NAME}")
+    conn.cursor().execute(f"CREATE DATABASE IF NOT EXISTS {st_config_green.DB_NAME}")
     conn.close()
 
-    conn = _db(config.DB_NAME)
+    conn = _db(st_config_green.DB_NAME)
     cursor = conn.cursor()
 
     # 1. Symbols Table
@@ -74,7 +74,7 @@ def setup_table():
     print(f"[{STRATEGY_NAME}] ✅ Tables ready.")
 
 def reset_positions():
-    conn = _db(config.DB_NAME)
+    conn = _db(st_config_green.DB_NAME)
     cursor = conn.cursor()
     cursor.execute(f"UPDATE {SYMBOLS_LIVE_TBL} SET isExecuted=0, buyprice=NULL, buytime=NULL, buy_order_id=NULL")
     conn.commit()

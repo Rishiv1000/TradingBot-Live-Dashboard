@@ -9,9 +9,9 @@ STRATEGY_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(STRATEGY_DIR, ".."))
 sys.path.append(ROOT_DIR)
 
-import st_config_ema as config
+import st_config_ema
 from engine_symbol_data import check_ema_entry_signal
-from config.order_manager import place_real_sell
+from configuration.order_manager import place_real_sell
 
 class EMAEntryEngine:
     def __init__(self, kite, df_cache):
@@ -68,7 +68,7 @@ class EMAEntryEngine:
                             live_price = ltp_data[instrument]['last_price']
                             
                             try:
-                                target_pct = config.TARGET
+                                target_pct = st_config_ema.TARGET
                             except AttributeError:
                                 target_pct = 0.5
                                     
@@ -86,7 +86,7 @@ class EMAEntryEngine:
 
     def execute_entry(self, symbol, exchange, price, trigger, target):
         try:
-            qty = config.DEFAULT_QTY
+            qty = st_config_ema.DEFAULT_QTY
         except AttributeError as e:
             print(f"DEFAULT_QTY missing in env. {e}")
             raise e
@@ -109,8 +109,7 @@ class EMAEntryEngine:
         print(f"[EMA-LIVE] ✅ {symbol} entry marked.")
 
 if __name__ == "__main__":
-    from config.base_config import get_kite_session
-    kite = get_kite_session()
+    kite = st_config_ema.get_kite_session()
     if kite:
         engine = EMAEntryEngine(kite, {})
         engine.start()

@@ -11,10 +11,10 @@ import pandas as pd
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, BASE_DIR)
 
-import st_config_green as config
+import st_config_green
 from engine_symbol_data import build_green_dataframe, fetch_runtime_symbols, update_symbol_dataframe_cache
-from config.candle_data import interval_minutes
-from config.order_manager import place_real_buy
+from configuration.candle_data import interval_minutes
+from configuration.order_manager import place_real_buy
 
 
 BOT_START_TIME = datetime.now()
@@ -34,10 +34,10 @@ class EntryEngine:
 
     def _db_connection(self):
         return mysql.connector.connect(
-            host=config.DB_HOST,
-            user=config.DB_USER,
-            password=config.DB_PASSWORD,
-            database=config.DB_NAME,
+            host=st_config_green.DB_HOST,
+            user=st_config_green.DB_USER,
+            password=st_config_green.DB_PASSWORD,
+            database=st_config_green.DB_NAME,
         )
 
     def _is_in_cooldown(self, symbol) -> bool:

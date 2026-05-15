@@ -1,6 +1,35 @@
-import { useCallback, useEffect, useState, useRef } from "react";
-import { createChart } from "lightweight-charts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CandlestickSeries, createChart } from "lightweight-charts";
 import api from "../../api";
+
+function toChartTime(value) {
+  if (!value) return null;
+  if (typeof value === "number") return value > 1000000000000 ? Math.floor(value / 1000) : value;
+  const clean = String(value).replace("T", " ").split(".")[0].split("+")[0].split("Z")[0];
+  const parsed = Date.parse(`${clean}Z`);
+  return Number.isNaN(parsed) ? null : Math.floor(parsed / 1000);
+}
+
+function buildCandles(rows) {
+  const seen = new Set();
+  return (rows || [])
+    .map((row) => {
+      const time = toChartTime(row.date || row.time || row.datetime);
+      const open = Number(row.open);
+      const high = Number(row.high);
+      const low = Number(row.low);
+      const close = Number(row.close);
+      if (!time || [open, high, low, close].some(Number.isNaN)) return null;
+      return { time, open, high, low, close };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.time - b.time)
+    .filter((row) => {
+      if (seen.has(row.time)) return false;
+      seen.add(row.time);
+      return true;
+    });
+}
 
 export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, symbols }) {
   const symbolNames = (symbols || []).map((s) => s.symbol);
@@ -8,6 +37,9 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
   const [dfData, setDfData] = useState(null);
   const [rowsToShow, setRowsToShow] = useState(20);
   const [loading, setLoading] = useState(false);
+  const chartContainerRef = useRef(null);
+  const chartRef = useRef(null);
+  const candlestickSeriesRef = useRef(null);
 
   useEffect(() => {
     if (symbolNames.length > 0 && !symbolNames.includes(selectedSymbol)) {
@@ -32,104 +64,47 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
     fetchDF();
   }, [fetchDF]);
 
-  const chartContainerRef = useRef(null);
-  const chartRef = useRef(null);
-  const candlestickSeriesRef = useRef(null);
-
   useEffect(() => {
     if (!chartContainerRef.current) return;
-
     const chart = createChart(chartContainerRef.current, {
-      layout: {
-        background: { color: "transparent" },
-        textColor: "#d1d4dc",
-      },
-      grid: {
-        vertLines: { color: "#334155" },
-        horzLines: { color: "#334155" },
-      },
       width: chartContainerRef.current.clientWidth,
       height: 300,
-      timeScale: {
-        timeVisible: true,
-        secondsVisible: false,
-      },
+      layout: { background: { color: "#0d1117" }, textColor: "#d1d4dc" },
+      grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
+      rightPriceScale: { borderColor: "#30363d" },
+      timeScale: { borderColor: "#30363d", timeVisible: true, secondsVisible: false },
     });
-
-    const candlestickSeries = chart.addCandlestickSeries({
-      upColor: "#26a69a",
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: color || "#26a69a",
       downColor: "#ef5350",
-      borderVisible: false,
-      wickUpColor: "#26a69a",
+      borderUpColor: color || "#26a69a",
+      borderDownColor: "#ef5350",
+      wickUpColor: color || "#26a69a",
       wickDownColor: "#ef5350",
     });
-
     chartRef.current = chart;
-    candlestickSeriesRef.current = candlestickSeries;
+    candlestickSeriesRef.current = series;
 
     const handleResize = () => {
-      chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      if (chartContainerRef.current) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
     };
-
     window.addEventListener("resize", handleResize);
-
     return () => {
       window.removeEventListener("resize", handleResize);
       chart.remove();
+      chartRef.current = null;
+      candlestickSeriesRef.current = null;
     };
-  }, []);
+  }, [color]);
 
   useEffect(() => {
-    if (!candlestickSeriesRef.current || !dfData?.data) return;
-
-    try {
-      // Lightweight charts expects time to be a string or number (unix timestamp)
-      // date column might be "2023-05-15 09:15:00"
-      const formattedData = dfData.data.map((d) => {
-        // Ensure we have required fields
-        const timeVal = d.date || d.time || d.datetime;
-        if (!timeVal) return null;
-
-        // Try to parse time if it's a string like "2023-05-15 09:15:00"
-        let time;
-        if (typeof timeVal === 'string') {
-          // If it has a space, lightweight charts might not like it directly for all scales
-          // but usually string dates work. Let's try to convert to unix if possible.
-          time = Math.floor(new Date(timeVal).getTime() / 1000);
-        } else {
-          time = timeVal;
-        }
-
-        if (isNaN(time)) return null;
-
-        return {
-          time: time,
-          open: parseFloat(d.open),
-          high: parseFloat(d.high),
-          low: parseFloat(d.low),
-          close: parseFloat(d.close),
-        };
-      }).filter(d => d !== null);
-
-      // Sort by time just in case
-      formattedData.sort((a, b) => a.time - b.time);
-
-      // Remove duplicates by time (Lightweight charts throws error on duplicate time)
-      const uniqueData = [];
-      const seenTimes = new Set();
-      for (const d of formattedData) {
-        if (!seenTimes.has(d.time)) {
-          uniqueData.push(d);
-          seenTimes.add(d.time);
-        }
-      }
-
-      if (uniqueData.length > 0) {
-        candlestickSeriesRef.current.setData(uniqueData);
-        chartRef.current.timeScale().fitContent();
-      }
-    } catch (e) {
-      console.error("Chart data error:", e);
+    if (!candlestickSeriesRef.current || !chartRef.current) return;
+    const candles = buildCandles(dfData?.data);
+    if (candles.length > 0) {
+      candlestickSeriesRef.current.setData(candles);
+      chartRef.current.timeScale().fitContent();
     }
   }, [dfData]);
 
@@ -155,18 +130,7 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
             <button className="btn-secondary" onClick={fetchDF} disabled={loading}>{loading ? "Loading..." : "Refresh DF"}</button>
           </div>
 
-          <div 
-            ref={chartContainerRef} 
-            style={{ 
-              width: "100%", 
-              height: "300px", 
-              marginBottom: "20px", 
-              background: "#0d1117", 
-              borderRadius: "8px",
-              border: "1px solid #30363d",
-              overflow: "hidden"
-            }} 
-          />
+          <div ref={chartContainerRef} style={{ width: "100%", height: "300px", marginBottom: "20px", background: "#0d1117", borderRadius: "8px", border: "1px solid #30363d", overflow: "hidden" }} />
 
           {loading ? <div style={{ color: "#8b949e" }}>Loading...</div> : dfData ? (
             <>

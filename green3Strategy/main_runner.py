@@ -13,21 +13,21 @@ sys.path.insert(0, BASE_DIR)
 from kiteconnect import KiteConnect
 
 try:
-    from config.terminal_capture import start_strategy_capture, stop_strategy_capture
+    from configuration.terminal_capture import start_strategy_capture, stop_strategy_capture
 except ImportError:
     def start_strategy_capture(name): pass
     def stop_strategy_capture(name):  pass
 
-import st_config_green3 as config
+import st_config_green3
 from engine_entry import EntryEngine
 from engine_exit  import ExitEngine
-from config.candle_data import interval_minutes
+from configuration.candle_data import interval_minutes
 
 
 def generate_or_load_session():
-    kite = KiteConnect(api_key=config.API_KEY, timeout=30)
-    if os.path.exists(config.ACCESS_TOKEN_FILE):
-        with open(config.ACCESS_TOKEN_FILE, "r") as f:
+    kite = KiteConnect(api_key=st_config_green3.API_KEY, timeout=30)
+    if os.path.exists(st_config_green3.ACCESS_TOKEN_FILE):
+        with open(st_config_green3.ACCESS_TOKEN_FILE, "r") as f:
             access_token = f.read().strip()
         if access_token:
             kite.set_access_token(access_token)
@@ -57,7 +57,7 @@ def main():
     # ── SAFETY LOCK ──────────────────────────────────────────────────────────
     if not getattr(config, "REAL_TRADING_ENABLED", False):
         print("🔒 [GREEN3] BLOCKED: REAL_TRADING_ENABLED = False in base_config.py")
-        print("🔒 [GREEN3] Set REAL_TRADING_ENABLED = True in config/base_config.py to unlock.")
+        print("🔒 [GREEN3] Set REAL_TRADING_ENABLED = True in configuration/base_config.py to unlock.")
         stop_strategy_capture("GREEN3")
         return
     # ─────────────────────────────────────────────────────────────────────────

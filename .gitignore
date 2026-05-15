@@ -1,7 +1,7 @@
 # ── Sensitive ─────────────────────────────────────────────────
 .env
-config/.env
-config/access_token.txt
+configuration/.env
+configuration/access_token.txt
 dashboard-ui/.env
 dashboard-ui/.env.local
 

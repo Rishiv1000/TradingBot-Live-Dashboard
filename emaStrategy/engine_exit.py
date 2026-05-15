@@ -9,9 +9,9 @@ STRATEGY_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(STRATEGY_DIR, ".."))
 sys.path.append(ROOT_DIR)
 
-import st_config_ema as config
+import st_config_ema
 from engine_symbol_data import check_ema_exit_signal
-from config.order_manager import place_real_buy
+from configuration.order_manager import place_real_buy
 
 class EMAExitEngine:
     def __init__(self, kite, df_cache):
@@ -80,7 +80,7 @@ class EMAExitEngine:
         symbol = trade['symbol']
         exchange = trade['exchange']
         try:
-            qty = config.DEFAULT_QTY
+            qty = st_config_ema.DEFAULT_QTY
         except AttributeError as e:
             print(f"DEFAULT_QTY missing in env. {e}")
             raise e
@@ -119,8 +119,7 @@ class EMAExitEngine:
         print(f"[EMA-EXIT] ✅ {symbol} Exit logged. PnL: {pnl}")
 
 if __name__ == "__main__":
-    from config.base_config import get_kite_session
-    kite = get_kite_session()
+    kite = st_config_ema.get_kite_session()
     if kite:
         engine = EMAExitEngine(kite, {})
         engine.start()

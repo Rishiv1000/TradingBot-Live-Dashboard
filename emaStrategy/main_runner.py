@@ -7,10 +7,9 @@ STRATEGY_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(STRATEGY_DIR, ".."))
 sys.path.append(ROOT_DIR)
 
-import st_config_ema as config
-from config.base_config import get_kite_session
+import st_config_ema
 from engine_symbol_data import build_ema_dataframe, fetch_runtime_symbols
-from config.candle_data import update_symbol_dataframe_cache
+from configuration.candle_data import update_symbol_dataframe_cache
 from engine_entry import EMAEntryEngine
 from engine_exit import EMAExitEngine
 
@@ -18,14 +17,14 @@ def smart_sleep(interval_minutes=1):
     now = datetime.now()
     seconds_to_wait = (interval_minutes * 60) - (now.second + (now.minute % interval_minutes) * 60) - 3
     if seconds_to_wait > 0:
-        print(f"[{config.STRATEGY_NAME}] 😴 Sleeping for {seconds_to_wait}s...")
+        print(f"[{st_config_ema.STRATEGY_NAME}] 😴 Sleeping for {seconds_to_wait}s...")
         time.sleep(seconds_to_wait)
 
 def main():
-    print(f"[{config.STRATEGY_NAME}] 🚀 EMA Trading System Starting (LIVE)...")
-    kite = get_kite_session()
+    print(f"[{st_config_ema.STRATEGY_NAME}] 🚀 EMA Trading System Starting (LIVE)...")
+    kite = st_config_ema.get_kite_session()
     if not kite:
-        print(f"[{config.STRATEGY_NAME}] ❌ Login failed.")
+        print(f"[{st_config_ema.STRATEGY_NAME}] ❌ Login failed.")
         return
 
     ema_df_cache = {}
@@ -37,7 +36,7 @@ def main():
     exit_engine.start()
     
     try:
-        interval = config.EMA_INTERVAL_MINUTES
+        interval = st_config_ema.EMA_INTERVAL_MINUTES
     except AttributeError:
         interval = 5
 

@@ -6,14 +6,14 @@ STRATEGY_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(STRATEGY_DIR, ".."))
 sys.path.append(ROOT_DIR)
 
-import st_config_ema as config
+import st_config_ema
 
 def setup_db():
     conn = mysql.connector.connect(
-        host=config.DB_HOST,
-        user=config.DB_USER,
-        password=config.DB_PASSWORD,
-        database=config.DB_NAME
+        host=st_config_ema.DB_HOST,
+        user=st_config_ema.DB_USER,
+        password=st_config_ema.DB_PASSWORD,
+        database=st_config_ema.DB_NAME
     )
     cursor = conn.cursor()
     STRATEGY_NAME           = getattr(config, "STRATEGY_NAME")
@@ -72,17 +72,17 @@ def setup_table():
 
 def reset_positions():
     conn = mysql.connector.connect(
-        host=config.DB_HOST,
-        user=config.DB_USER,
-        password=config.DB_PASSWORD,
-        database=config.DB_NAME
+        host=st_config_ema.DB_HOST,
+        user=st_config_ema.DB_USER,
+        password=st_config_ema.DB_PASSWORD,
+        database=st_config_ema.DB_NAME
     )
     cursor = conn.cursor()
     EMA_SYMBOLS_LIVE_TBL = getattr(config, "EMA_SYMBOLS_LIVE_TBL")
     cursor.execute(f"UPDATE {EMA_SYMBOLS_LIVE_TBL} SET isExecuted=0, buy_price=NULL, buy_time=NULL, buy_order_id=NULL")
     conn.commit()
     conn.close()
-    print(f"[{config.STRATEGY_NAME}] Positions reset.")
+    print(f"[{st_config_ema.STRATEGY_NAME}] Positions reset.")
 
 if __name__ == "__main__":
     setup_db()

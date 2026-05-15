@@ -5,7 +5,7 @@ Used by main_runner.py to capture terminal output for the dashboard.
 import os
 import sys
 
-# Logs directory — one level up from config/
+# Logs directory — one level up from configuration/
 LOGS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 
 _original_stdout = sys.stdout

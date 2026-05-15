@@ -6,8 +6,8 @@ import mysql.connector
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, BASE_DIR)
 
-import st_config_green3 as config
-from config.candle_data import (
+import st_config_green3
+from configuration.candle_data import (
     build_symbol_dataframe,
     fetch_symbol_candles,
     update_symbol_dataframe_cache,
@@ -22,10 +22,10 @@ _cache_loaded = False
 def _load_symbols_from_db():
     global _symbol_cache, _cache_loaded
     conn = mysql.connector.connect(
-        host=config.DB_HOST,
-        user=config.DB_USER,
-        password=config.DB_PASSWORD,
-        database=config.DB_NAME,
+        host=st_config_green3.DB_HOST,
+        user=st_config_green3.DB_USER,
+        password=st_config_green3.DB_PASSWORD,
+        database=st_config_green3.DB_NAME,
     )
     cursor = conn.cursor(dictionary=True)
     symbols_table = getattr(config, "SYMBOLS_TABLE", "symbols_green3")
