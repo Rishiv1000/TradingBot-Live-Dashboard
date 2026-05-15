@@ -12,7 +12,6 @@ if ROOT_DIR not in sys.path: sys.path.insert(0, ROOT_DIR)
 
 import st_config_ema
 from api_shared import db_fetchall, db_exec
-from engine_symbol_data import check_ema_exit_signal
 from configuration.order_manager import place_real_buy
 
 class EMAExitEngine:
@@ -29,6 +28,22 @@ class EMAExitEngine:
     def _fetch_open_trades(self):
         table = st_config_ema.EMA_SYMBOLS_LIVE_TBL
         return db_fetchall(f"SELECT * FROM {table} WHERE isExecuted=1")
+
+    # ── STRATEGY EXIT LOGIC ────────────────────────────────
+    def _check_exit(self, df, trade, live_price):
+        """
+        EMA Short Exit Conditions:
+          1. TARGET HIT  — live_price <= target_price (price fell, profit)
+          2. EMA REVERSAL — EMA9 crossed above EMA20 on last candle
+        Returns: (is_exit: bool, trigger_price: float, reason: str)
+        """
+        target_price = float(trade.get("target_price") or 0)
+        if target_price > 0 and live_price <= target_price:
+            return True, target_price, "TARGET_HIT"
+        if df is not None and len(df) >= 2:
+            if df.iloc[-2].get("cross_up") == 1:
+                return True, df.iloc[-2]["close"], "EMA_REVERSAL"
+        return False, None, None
 
     def _refresh_subscriptions(self, kws):
         """Re-read open trades from DB and sync WebSocket subscriptions."""
@@ -139,7 +154,7 @@ class EMAExitEngine:
                     trade = self.state["open_by_token"].get(token)
                     if trade and trade["buy_order_id"] not in self.state["processing"]:
                         df = self.df_cache.get(token)
-                        is_exit, trigger_price, reason = check_ema_exit_signal(df, trade, live_price)
+                        is_exit, trigger_price, reason = self._check_exit(df, trade, live_price)
                         if is_exit:
                             self.state["processing"].add(trade["buy_order_id"])
                             row_to_exit = trade

@@ -44,7 +44,7 @@ def build_green_dataframe(kite, token, days=None):
 
 def refresh_all_green_data(kite, df_cache):
     sec = get_green_smart_sleep()
-    print(f"[GREEN-LIVE] 😴 Waiting {sec}s for next candle...")
+    # print(f"[GREEN-LIVE] 😴 Waiting {sec}s for next candle...")
     time.sleep(sec)
 
     table = st_config_green.SYMBOLS_TABLE

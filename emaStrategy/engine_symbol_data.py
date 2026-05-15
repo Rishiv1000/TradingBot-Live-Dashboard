@@ -48,48 +48,10 @@ def build_ema_dataframe(kite, token, days=None):
         print(f"Error building EMA DF for token {token}: {e}")
         return None
 
-def check_ema_entry_signal(df):
-    """
-    SHORT entry signal:
-    - Second-to-last candle has cross_down == 1 (EMA9 crosses below EMA20)
-    - Gap between EMA9 and EMA20 meets minimum threshold
-    Returns: (is_signal: bool, trigger_price: float | None)
-    """
-    if df is None or len(df) < 2:
-        return False, None
-    signal_row = df.iloc[-2]
-    if signal_row.get("cross_down") == 1:
-        ema9  = signal_row["EMA_9"]
-        ema20 = signal_row["EMA_20"]
-        gap_pct = (ema20 - ema9) / ema9
-        short_gap = getattr(st_config_ema, "EMA_SHORT_GAP", 0.5)
-        if gap_pct >= short_gap:
-            return True, signal_row["close"]
-    return False, None
-
-def check_ema_exit_signal(df, trade, live_price):
-    """
-    SHORT exit conditions (checked in order):
-    1. live_price <= target_price  → TARGET_HIT  (price fell to target)
-    2. EMA cross_up in last candle → EMA_REVERSAL (trend reversed upward)
-    Returns: (is_exit: bool, trigger_price: float | None, reason: str | None)
-    """
-    # Condition 1: Target hit (SHORT — profit when price drops)
-    target_price = float(trade.get("target_price") or 0)
-    if target_price > 0 and live_price <= target_price:
-        return True, target_price, "TARGET_HIT"
-
-    # Condition 2: EMA reversal on completed candle
-    if df is not None and len(df) >= 2:
-        signal_row = df.iloc[-2]
-        if signal_row.get("cross_up") == 1:
-            return True, signal_row["close"], "EMA_REVERSAL"
-
-    return False, None, None
 
 def refresh_all_ema_data(kite, df_cache):
     sec = get_ema_smart_sleep()
-    print(f"[{st_config_ema.STRATEGY_NAME}] 😴 Waiting {sec}s for next candle...")
+    # print(f"[{st_config_ema.STRATEGY_NAME}] 😴 Waiting {sec}s for next candle...")
     time.sleep(sec)
 
     table = st_config_ema.EMA_SYMBOLS_LIVE_TBL

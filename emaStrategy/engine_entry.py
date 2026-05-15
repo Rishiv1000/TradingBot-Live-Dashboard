@@ -11,7 +11,6 @@ if ROOT_DIR not in sys.path: sys.path.insert(0, ROOT_DIR)
 
 import st_config_ema
 from api_shared import db_fetchall, db_exec
-from engine_symbol_data import check_ema_entry_signal
 from configuration.order_manager import place_real_sell
 
 class EMAEntryEngine:
@@ -19,6 +18,26 @@ class EMAEntryEngine:
         self.kite = kite
         self.df_cache = df_cache
         self.is_running = False
+
+    # ── STRATEGY SIGNAL ───────────────────────────────────────
+    def _check_signal(self, df):
+        """
+        EMA Short Entry Signal:
+          - Last COMPLETED candle (iloc[-2]) has EMA9 crossed below EMA20
+          - Gap % = (EMA20 - EMA9) / EMA9 >= EMA_SHORT_GAP threshold
+        Returns: (signal: bool, trigger_price: float)
+        """
+        if df is None or len(df) < 2:
+            return False, None
+        candle = df.iloc[-2]                          # Last completed candle
+        if candle.get("cross_down") != 1:             # EMA9 crossed below EMA20?
+            return False, None
+        ema9    = candle["EMA_9"]
+        ema20   = candle["EMA_20"]
+        gap_pct = (ema20 - ema9) / ema9              # Gap strength check
+        if gap_pct >= getattr(st_config_ema, "EMA_SHORT_GAP", 0.5):
+            return True, candle["close"]
+        return False, None
 
     def start(self):
         print("[EMA-LIVE] Starting Entry Engine...")
@@ -49,7 +68,7 @@ class EMAEntryEngine:
                         df = self.df_cache.get(token)
                         if df is None or df.empty: continue
 
-                        is_signal, trigger_price = check_ema_entry_signal(df)
+                        is_signal, trigger_price = self._check_signal(df)
 
                         if is_signal:
                             instrument = f"{exchange}:{symbol}"

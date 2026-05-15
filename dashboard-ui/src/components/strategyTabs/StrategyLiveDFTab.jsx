@@ -44,6 +44,7 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
   const ema20SeriesRef = useRef(null);
   const [showChart, setShowChart] = useState(true);
   const [countdown, setCountdown] = useState(0);
+  const [lastFetchedAt, setLastFetchedAt] = useState(null);
 
   useEffect(() => {
     if (symbolNames.length > 0 && !symbolNames.includes(selectedSymbol)) {
@@ -57,9 +58,8 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
     try {
       const res = await api.get(`${endpointPrefix}/df/${selectedSymbol}`);
       setDfData(res.data);
-      if (res.data.next_candle_sec) {
-        setCountdown(res.data.next_candle_sec);
-      }
+      setLastFetchedAt(new Date().toLocaleTimeString());
+      if (res.data.next_candle_sec) setCountdown(res.data.next_candle_sec);
     } catch {
       setDfData(null);
     } finally {
@@ -71,20 +71,12 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
     fetchDF();
   }, [fetchDF]);
 
-  // Countdown timer logic
+  // Countdown: ticks down every second — display only, no auto-reload
   useEffect(() => {
     if (countdown <= 0) return;
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          fetchDF(); // Re-fetch when countdown hits zero
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [countdown, fetchDF]);
+    const t = setInterval(() => setCountdown(prev => Math.max(0, prev - 1)), 1000);
+    return () => clearInterval(t);
+  }, [countdown]);
 
   useEffect(() => {
     if (!chartContainerRef.current || !showChart) return;
@@ -227,9 +219,12 @@ export default function StrategyLiveDFTab({ strategy, color, endpointPrefix, sym
                 <div className="metric-box"><div className="metric-label">Candles</div><div className="metric-value">{dfData.candle_count || 0}</div></div>
                 <div className="metric-box"><div className="metric-label">Last Candle</div><div className="metric-value" style={{ fontSize: "14px" }}>{dfData.last_candle || "-"}</div></div>
                 <div className="metric-box">
-                  <div className="metric-label">Next Refresh</div>
-                  <div className="metric-value" style={{ color: countdown < 10 ? "#ff7b72" : "#a5d6ff" }}>{countdown}s</div>
+                  <div className="metric-label">Next Candle</div>
+                  <div className="metric-value" style={{ color: countdown <= 10 ? "#ff7b72" : countdown <= 30 ? "#e3b341" : "#a5d6ff" }}>
+                    {countdown > 0 ? `${countdown}s` : "🕐 Now"}
+                  </div>
                 </div>
+                <div className="metric-box"><div className="metric-label">Last Loaded</div><div className="metric-value" style={{ fontSize: "13px" }}>{lastFetchedAt || "-"}</div></div>
                 <div className="metric-box"><div className="metric-label">Showing</div><div className="metric-value">{Math.min(rowsToShow, dfData.data?.length || 0)}</div></div>
               </div>
               {dfData.data?.length > 0 ? (

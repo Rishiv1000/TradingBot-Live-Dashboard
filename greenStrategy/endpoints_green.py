@@ -14,8 +14,7 @@ from api_shared import (
     terminate_strategy_process, SymbolRequest, LOGS_DIR
 )
 import st_config_green
-from engine_symbol_data import build_green_dataframe, get_green_smart_sleep
-from configuration.candle_data import search_kite_symbol
+from configuration.candle_data import search_kite_symbol, interval_minutes
 
 router = APIRouter(prefix="/api/green", tags=["GREEN"])
 
@@ -68,10 +67,16 @@ def get_df(symbol: str):
         df = cache[token]
         last_candle = str(df.iloc[-1]["date"]) if not df.empty and "date" in df.columns else None
         df_tail = df.tail(500).fillna("")
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        now = datetime.now(ZoneInfo("Asia/Kolkata"))
+        interval = interval_minutes(st_config_green.TIMEFRAME)
+        remaining = (interval * 60) - ((now.hour * 60 + now.minute) % interval * 60 + now.second)
+        next_candle_sec = max(0, remaining)
         return {
             "candle_count": len(df),
             "last_candle": last_candle,
-            "next_candle_sec": get_green_smart_sleep(),
+            "next_candle_sec": next_candle_sec,
             "columns": list(df_tail.columns),
             "data": df_tail.to_dict(orient="records"),
         }
