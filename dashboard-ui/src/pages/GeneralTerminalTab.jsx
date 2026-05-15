@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import api from "../../api";
+import api from "../api";
 
 export default function SystemLogsTab() {
   const [backendLogs, setBackendLogs] = useState("Loading backend logs...");
