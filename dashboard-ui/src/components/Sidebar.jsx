@@ -103,7 +103,7 @@ export default function Sidebar({
 
   const handleStart = async (strategy) => {
     try {
-      await api.post(`/api/strategy/${strategy}/start`);
+      await api.post(`/api/${strategy.toLowerCase()}/start`);
       onRefresh();
     } catch (e) {
       alert("Start failed: " + (e.response?.data?.detail || e.message));
@@ -112,7 +112,7 @@ export default function Sidebar({
 
   const handleStop = async (strategy) => {
     try {
-      await api.post(`/api/strategy/${strategy}/stop`);
+      await api.post(`/api/${strategy.toLowerCase()}/stop`);
       onRefresh();
     } catch (e) {
       alert("Stop failed: " + (e.response?.data?.detail || e.message));
@@ -121,7 +121,7 @@ export default function Sidebar({
 
   const handleTerminate = async (strategy) => {
     try {
-      await api.post(`/api/strategy/${strategy}/terminate`);
+      await api.post(`/api/${strategy.toLowerCase()}/terminate`);
       onRefresh();
     } catch (e) {
       alert("Terminate failed: " + (e.response?.data?.detail || e.message));

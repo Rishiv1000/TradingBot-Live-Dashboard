@@ -359,6 +359,18 @@ def stop_strategy(strategy: str):
         if runner in " ".join(p.info.get("cmdline") or []): p.terminate()
     return {"success": True}
 
+def terminate_strategy(strategy: str):
+    strategy = strategy.upper(); runner = STRATEGIES[strategy]["runner"]
+    for p in psutil.process_iter(["cmdline"]):
+        if runner in " ".join(p.info.get("cmdline") or []):
+            try:
+                for child in p.children(recursive=True):
+                    child.kill()
+                p.kill()
+            except Exception:
+                p.terminate()
+    return {"success": True}
+
 @app.post("/api/setup-db")
 def setup_db():
     for strategy, meta in STRATEGIES.items():
@@ -407,6 +419,7 @@ _strategy_route_handlers = {
     "clear_terminal": clear_terminal,
     "start_strategy": start_strategy,
     "stop_strategy": stop_strategy,
+    "terminate_strategy": terminate_strategy,
     "run_ema_backtest": run_ema_backtest,
     "download_backtest_report": download_backtest_report,
 }

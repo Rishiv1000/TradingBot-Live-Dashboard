@@ -48,6 +48,10 @@ def build_router(handlers):
     def stop_strategy():
         return handlers["stop_strategy"]("EMA")
 
+    @router.post("/terminate")
+    def terminate_strategy():
+        return handlers["terminate_strategy"]("EMA")
+
     @router.post("/backtest")
     def run_backtest():
         return handlers["run_ema_backtest"]()

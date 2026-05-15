@@ -48,6 +48,10 @@ def build_router(handlers):
     def stop_strategy():
         return handlers["stop_strategy"]("GREEN")
 
+    @router.post("/terminate")
+    def terminate_strategy():
+        return handlers["terminate_strategy"]("GREEN")
+
     @router.post("/backtest")
     def run_backtest():
         return {"success": False, "error": "GREEN backtest is not configured in live project yet."}
