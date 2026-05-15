@@ -10,6 +10,7 @@ import mysql.connector.pooling
 import psutil
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -31,19 +32,31 @@ except Exception as e:
     DB_POOL_SIZE = 32
     ACCESS_TOKEN_FILE = LOGS_DIR = ""
 
+def strategy_folder(*names):
+    for name in names:
+        path = os.path.abspath(os.path.join(BASE_DIR, name))
+        if os.path.exists(path):
+            return path
+    return os.path.abspath(os.path.join(BASE_DIR, names[0]))
+
+
+EMA_FOLDER = strategy_folder("emaStrategy")
+GREEN_FOLDER = strategy_folder("greenStrategy")
+
+
 STRATEGIES = {
      "EMA": {
-        "folder": os.path.abspath(os.path.join(BASE_DIR, "EMA_Strategy")),
-        "runner": os.path.abspath(os.path.join(BASE_DIR, "EMA_Strategy", "main_runner.py")),
+        "folder": EMA_FOLDER,
+        "runner": os.path.join(EMA_FOLDER, "main_runner.py"),
         "table":  "ema_symbols_live",
         "color":  "#ff9800",
     },
-    # "GREEN": {
-    #     "folder": os.path.abspath(os.path.join(BASE_DIR, "Green Strategy")),
-    #     "runner": os.path.abspath(os.path.join(BASE_DIR, "Green Strategy", "main_runner.py")),
-    #     "table":  "green_symbols_live",
-    #     "color":  "#2ea043",
-    # },
+    "GREEN": {
+        "folder": GREEN_FOLDER,
+        "runner": os.path.join(GREEN_FOLDER, "main_runner.py"),
+        "table":  "green_symbols_live",
+        "color":  "#2ea043",
+    },
 }
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
@@ -206,27 +219,57 @@ def kite_session(body: SessionRequest):
         return {"success": True}
     except Exception as e: return {"success": False, "error": str(e)}
 
-@app.get("/api/symbols/{strategy}")
 def get_symbols(strategy: str):
     strategy = strategy.upper()
     if strategy not in STRATEGIES: raise HTTPException(status_code=404)
-    return db_fetchall(f"SELECT symbol, exchange, instrument_token, isExecuted, target_price FROM {STRATEGIES[strategy]['table']} ORDER BY symbol")
+    target_expr = "target_price" if strategy == "EMA" else "0 AS target_price"
+    return db_fetchall(f"SELECT symbol, exchange, instrument_token, isExecuted, {target_expr} FROM {STRATEGIES[strategy]['table']} ORDER BY symbol")
 
-@app.post("/api/symbols/{strategy}")
 def add_symbol(strategy: str, body: SymbolRequest):
     strategy = strategy.upper(); kite = get_kite()
     if not kite: raise HTTPException(status_code=401)
     inst = f"{body.exchange.upper()}:{body.symbol.upper()}"
     token = kite.ltp(inst)[inst]["instrument_token"]
     table = STRATEGIES[strategy]["table"]
-    db_exec(f"INSERT INTO {table} (symbol, exchange, instrument_token, isExecuted, target_price) VALUES (%s, %s, %s, 0, %s) ON DUPLICATE KEY UPDATE target_price=%s",
-            (body.symbol.upper(), body.exchange.upper(), token, body.target_price, body.target_price))
+    if strategy == "EMA":
+        db_exec(f"INSERT INTO {table} (symbol, exchange, instrument_token, isExecuted, target_price) VALUES (%s, %s, %s, 0, %s) ON DUPLICATE KEY UPDATE exchange=%s, instrument_token=%s, target_price=%s",
+                (body.symbol.upper(), body.exchange.upper(), token, body.target_price, body.exchange.upper(), token, body.target_price))
+    else:
+        db_exec(f"INSERT INTO {table} (symbol, exchange, instrument_token, isExecuted) VALUES (%s, %s, %s, 0) ON DUPLICATE KEY UPDATE exchange=%s, instrument_token=%s",
+                (body.symbol.upper(), body.exchange.upper(), token, body.exchange.upper(), token))
     return {"success": True}
 
-@app.delete("/api/symbols/{strategy}/{symbol}")
 def delete_symbol(strategy: str, symbol: str):
     db_exec(f"DELETE FROM {STRATEGIES[strategy.upper()]['table']} WHERE symbol=%s", (symbol.upper(),))
     return {"success": True}
+
+def reload_symbol_cache(strategy: str):
+    strategy = strategy.upper()
+    if strategy not in STRATEGIES: raise HTTPException(status_code=404)
+    signal_file = os.path.join(STRATEGIES[strategy]["folder"], ".reload_symbols")
+    try:
+        open(signal_file, "w").close()
+        return {"success": True, "message": f"{strategy} will reload symbols on next cycle."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def get_df(strategy: str, symbol: str):
+    strategy = strategy.upper()
+    if strategy not in STRATEGIES: raise HTTPException(status_code=404)
+    cache_path = os.path.join(STRATEGIES[strategy]["folder"], "live_df_cache.pkl")
+    if not os.path.exists(cache_path):
+        return {"candle_count": 0, "last_candle": None, "columns": [], "data": []}
+    try:
+        with open(cache_path, "rb") as f:
+            cache = pickle.load(f)
+        if symbol.upper() not in cache:
+            return {"candle_count": 0, "last_candle": None, "columns": [], "data": []}
+        df = cache[symbol.upper()]
+        last_candle = str(df.iloc[-1]["date"]) if not df.empty and "date" in df.columns else None
+        df_tail = df.tail(500).fillna("")
+        return {"candle_count": len(df), "last_candle": last_candle, "columns": list(df_tail.columns), "data": df_tail.to_dict(orient="records")}
+    except Exception as e:
+        return {"candle_count": 0, "last_candle": None, "columns": [], "data": [], "error": str(e)}
 
 @app.get("/api/positions")
 def get_positions():
@@ -240,20 +283,45 @@ def get_positions():
 def get_history():
     return db_fetchall("SELECT strategy, symbol, buy_time as buytime, buy_price as buyprice, sell_time as selltime, sell_price as sellprice, pnl, reason FROM ema_trades_live ORDER BY id DESC LIMIT 100")
 
-@app.get("/api/terminal/{strategy}")
+def get_positions_for_strategy(strategy: str):
+    strategy = strategy.upper()
+    if strategy not in STRATEGIES: raise HTTPException(status_code=404)
+    rows = db_fetchall(f"SELECT symbol, buy_price as buyprice, buy_time as buytime, product FROM {STRATEGIES[strategy]['table']} WHERE isExecuted=1")
+    for row in rows:
+        row["strategy"] = strategy
+    return rows
+
+def get_history_for_strategy(strategy: str):
+    strategy = strategy.upper()
+    if strategy not in STRATEGIES: raise HTTPException(status_code=404)
+    table = "ema_trades_live" if strategy == "EMA" else "green_trades_live"
+    try:
+        return db_fetchall(
+            f"SELECT %s as strategy, symbol, buy_time as buytime, buy_price as buyprice, sell_time as selltime, sell_price as sellprice, pnl, reason FROM {table} ORDER BY id DESC LIMIT 100",
+            (strategy,),
+        )
+    except Exception:
+        return []
+
 def get_terminal(strategy: str):
     log_path = os.path.join(LOGS_DIR, f"{strategy.lower()}_terminal.log")
     if not os.path.exists(log_path): return {"lines": "No log yet."}
     with open(log_path, "r", encoding="utf-8", errors="replace") as f: return {"lines": "".join(f.readlines()[-200:])}
 
-@app.post("/api/strategy/{strategy}/start")
+def clear_terminal(strategy: str):
+    log_path = os.path.join(LOGS_DIR, f"{strategy.lower()}_terminal.log")
+    try:
+        open(log_path, "w").close()
+    except Exception:
+        pass
+    return {"success": True}
+
 def start_strategy(strategy: str):
     strategy = strategy.upper(); meta = STRATEGIES[strategy]
     if not is_running(strategy):
         subprocess.Popen([sys.executable, meta["runner"]], cwd=meta["folder"], creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform=="win32" else 0)
     return {"success": True}
 
-@app.post("/api/strategy/{strategy}/stop")
 def stop_strategy(strategy: str):
     strategy = strategy.upper(); runner = STRATEGIES[strategy]["runner"]
     for p in psutil.process_iter(["cmdline"]):
@@ -272,17 +340,15 @@ def setup_db():
     return {"success": True}
 
 # ── Backtest Endpoints ────────────────────────────────────────────────────────
-@app.post("/api/strategy/EMA/backtest")
 def run_ema_backtest():
-    backtest_folder = os.path.join(BASE_DIR, "..", "Project_Backtest_Paper", "EMA_Strategy")
+    backtest_folder = os.path.join(BASE_DIR, "..", "Project_Backtest_Paper", "emaStrategy")
     runner = os.path.join(backtest_folder, "backtest_runner.py")
     subprocess.Popen([sys.executable, runner], cwd=backtest_folder, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform=="win32" else 0)
     return {"success": True}
 
-@app.get("/api/strategy/EMA/backtest/download")
 def download_backtest_report():
     import glob
-    backtest_folder = os.path.join(BASE_DIR, "..", "Project_Backtest_Paper", "EMA_Strategy")
+    backtest_folder = os.path.join(BASE_DIR, "..", "Project_Backtest_Paper", "emaStrategy")
     files = glob.glob(os.path.join(backtest_folder, "EMA_Backtest_*.xlsx"))
     if not files: raise HTTPException(404, "Report not found")
     latest = max(files, key=os.path.getctime)
@@ -291,6 +357,29 @@ def download_backtest_report():
 @app.get("/api/backtest/history")
 def get_backtest_history():
     return db_fetchall("SELECT 'EMA' as strategy, symbol, buy_time as buytime, buy_price as buyprice, sell_time as selltime, sell_price as sellprice, pnl, reason FROM ema_trades_backtest ORDER BY id DESC LIMIT 100")
+
+from strategy_routes.ema_routes import build_router as build_ema_router
+from strategy_routes.green_routes import build_router as build_green_router
+
+_strategy_route_handlers = {
+    "SymbolRequest": SymbolRequest,
+    "get_symbols": get_symbols,
+    "add_symbol": add_symbol,
+    "delete_symbol": delete_symbol,
+    "reload_symbol_cache": reload_symbol_cache,
+    "get_df": get_df,
+    "get_positions_for_strategy": get_positions_for_strategy,
+    "get_history_for_strategy": get_history_for_strategy,
+    "get_terminal": get_terminal,
+    "clear_terminal": clear_terminal,
+    "start_strategy": start_strategy,
+    "stop_strategy": stop_strategy,
+    "run_ema_backtest": run_ema_backtest,
+    "download_backtest_report": download_backtest_report,
+}
+
+app.include_router(build_ema_router(_strategy_route_handlers))
+app.include_router(build_green_router(_strategy_route_handlers))
 
 if __name__ == "__main__":
     import uvicorn

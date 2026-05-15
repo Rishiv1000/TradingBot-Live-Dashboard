@@ -1,44 +1,29 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "./api";
 import Sidebar from "./components/Sidebar";
 import StrategyCards from "./components/StrategyCards";
-import SymbolsTab from "./components/tabs/SymbolsTab";
-import LiveDFTab from "./components/tabs/LiveDFTab";
-import PositionsTab from "./components/tabs/PositionsTab";
-import HistoryTab from "./components/tabs/HistoryTab";
-import TerminalTab from "./components/tabs/TerminalTab";
-import DatabaseTab from "./components/tabs/DatabaseTab";
-import BacktestTab from "./components/tabs/BacktestTab";
-// SystemLogsTab removed
+import EmaStrategyPage from "./pages/EmaStrategyPage";
+import GreenStrategyPage from "./pages/GreenStrategyPage";
+import GeneralPage from "./pages/GeneralPage";
+import "./App.css";
 
-const TABS = [
-
-  { id: "livedf", label: "📊 Live DF" },
-  { id: "positions", label: "📂 Positions" },
-  { id: "history", label: "📜 History" },
-  { id: "terminal", label: "🖥️ Terminal" },
-  { id: "symbols", label: "📋 Symbols" },
-  { id: "backtest", label: "🧪 Backtest" },
-  { id: "database", label: "⚙️ Infrastructure" },
+const PAGES = [
+  { id: "ema", label: "EMA Strategy" },
+  { id: "green", label: "Green Strategy" },
+  { id: "general", label: "General" },
 ];
 
 export default function App() {
-  // ── core state ──────────────────────────────────────────────────────────────
   const [status, setStatus] = useState(null);
   const [kiteLoggedIn, setKiteLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState("livedf");
+  const [activePage, setActivePage] = useState("ema");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshInterval, setRefreshInterval] = useState(5);
   const [lastSync, setLastSync] = useState("");
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
-  const [isConnected, setIsConnected] = useState(false);
-
-  // ── symbols cache — fetched once, updated on add/delete ───────────────────
-  // { GREEN: [...], RSI: [...] }
   const [symbolsCache, setSymbolsCache] = useState({});
-  const symbolsFetched = useRef(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
 
-  // ── fetch strategy running status only (fast, no network to Kite) ─────────
   const fetchStatus = useCallback(async () => {
     try {
       const res = await api.get("/api/status");
@@ -50,17 +35,7 @@ export default function App() {
     }
   }, []);
 
-  // ── fetch kite login status — on mount with retry, and after session save ──
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggleTheme = useCallback(() => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-  }, []);
-
-  const fetchKiteStatus = useCallback(async () => {
+  const fetchLiveStatus = useCallback(async () => {
     try {
       const res = await api.get("/api/kite/status");
       setKiteLoggedIn(res.data.logged_in);
@@ -69,76 +44,48 @@ export default function App() {
     }
   }, []);
 
-  // ── on mount: fetch kite status, retry once after 3s if not logged in ─────
-  useEffect(() => {
-    let retryTimer = null;
-    const checkKite = async () => {
-      try {
-        const res = await api.get("/api/kite/status");
-        setKiteLoggedIn(res.data.logged_in);
-        if (!res.data.logged_in) {
-          // Retry once after 3s — API server may still be starting up
-          retryTimer = setTimeout(fetchKiteStatus, 3000);
-        }
-      } catch {
-        setKiteLoggedIn(false);
-        retryTimer = setTimeout(fetchKiteStatus, 3000);
-      }
-    };
-    checkKite();
-    return () => { if (retryTimer) clearTimeout(retryTimer); };
-  }, [fetchKiteStatus]);
-
-  // ── fetch all symbols once ─────────────────────────────────────────────────
   const fetchAllSymbols = useCallback(async () => {
-    try {
-      const strategies = ["GREEN", "GREEN3", "EMA"];
-      const results = await Promise.all(
-        strategies.map((s) => api.get(`/api/symbols/${s}`).then((r) => [s, r.data]))
-      );
-      const cache = {};
-      results.forEach(([s, data]) => { cache[s] = data; });
-      setSymbolsCache(cache);
-      symbolsFetched.current = true;
-    } catch {
-      // ignore
-    }
+    const strategies = ["EMA", "GREEN"];
+    const results = await Promise.all(strategies.map((s) => api.get(`/api/${s.toLowerCase()}/symbols`).then((r) => [s, r.data]).catch(() => [s, []])));
+    const cache = {};
+    results.forEach(([strategy, data]) => { cache[strategy] = data; });
+    setSymbolsCache(cache);
   }, []);
 
-  // ── refresh symbols for one strategy (after add/delete) ───────────────────
   const refreshSymbols = useCallback(async (strategy) => {
     try {
-      const res = await api.get(`/api/symbols/${strategy}`);
+      const res = await api.get(`/api/${strategy.toLowerCase()}/symbols`);
       setSymbolsCache((prev) => ({ ...prev, [strategy]: res.data }));
     } catch {
-      // ignore
+      // ignore refresh failures in the UI shell
     }
   }, []);
 
-  // ── on mount: fetch status and symbols ───────────────────────────────────
   useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    fetchLiveStatus();
     fetchStatus();
     fetchAllSymbols();
-  }, []);
+  }, [fetchLiveStatus, fetchStatus, fetchAllSymbols]);
 
-  // ── auto-refresh: only status (running/stopped counts) ────────────────────
-  // kite status and symbols do NOT auto-refresh
   useEffect(() => {
     if (!autoRefresh) return;
-    const id = setInterval(fetchStatus, refreshInterval * 1000);
+    const id = setInterval(() => {
+      fetchStatus();
+      fetchLiveStatus();
+    }, refreshInterval * 1000);
     return () => clearInterval(id);
-  }, [autoRefresh, refreshInterval, fetchStatus]);
+  }, [autoRefresh, refreshInterval, fetchStatus, fetchLiveStatus]);
 
-  // ── manual refresh: status + symbols ──────────────────────────────────────
   const handleRefresh = useCallback(() => {
     fetchStatus();
+    fetchLiveStatus();
     fetchAllSymbols();
-  }, [fetchStatus, fetchAllSymbols]);
-
-  // ── after session saved: re-check kite status ─────────────────────────────
-  const handleSessionSaved = useCallback(() => {
-    fetchKiteStatus();
-  }, [fetchKiteStatus]);
+  }, [fetchStatus, fetchLiveStatus, fetchAllSymbols]);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -151,56 +98,18 @@ export default function App() {
         setRefreshInterval={setRefreshInterval}
         lastSync={lastSync}
         onRefresh={handleRefresh}
-        onSessionSaved={handleSessionSaved}
+        onSessionSaved={fetchLiveStatus}
         theme={theme}
-        onToggleTheme={toggleTheme}
+        onToggleTheme={() => setTheme((prev) => prev === "dark" ? "light" : "dark")}
       />
 
       <div style={{ marginLeft: "260px", flex: 1, padding: "24px 28px", minWidth: 0 }}>
-        <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px" }}>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-color)", margin: 0 }}>
-            📡 Multi-Strategy Live Terminal
-          </h1>
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "4px 10px",
-            borderRadius: "12px",
-            fontSize: "12px",
-            fontWeight: 600,
-            background: isConnected ? "#2ea04322" : "#da363322",
-            color: isConnected ? "#2ea043" : "#da3633",
-            border: `1px solid ${isConnected ? "#2ea043" : "#da3633"}`,
-          }}>
-            <div style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              background: isConnected ? "#2ea043" : "#da3633",
-              animation: isConnected ? "pulse 2s infinite" : "none"
-            }}></div>
+        <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-color)", margin: 0 }}>Multi-Strategy Live Terminal</h1>
+          <div className="pill" style={{ background: isConnected ? "#2ea04322" : "#da363322", color: isConnected ? "#2ea043" : "#da3633", border: `1px solid ${isConnected ? "#2ea043" : "#da3633"}` }}>
             {isConnected ? "Backend Connected" : "Backend Not Connected"}
           </div>
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "4px 10px",
-            borderRadius: "12px",
-            fontSize: "12px",
-            fontWeight: 600,
-            background: kiteLoggedIn ? "#1f6feb22" : "#da363322",
-            color: kiteLoggedIn ? "#1f6feb" : "#da3633",
-            border: `1px solid ${kiteLoggedIn ? "#1f6feb" : "#da3633"}`,
-          }}>
-            <div style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              background: kiteLoggedIn ? "#1f6feb" : "#da3633",
-              animation: kiteLoggedIn ? "pulse 2s infinite" : "none"
-            }}></div>
+          <div className="pill" style={{ background: kiteLoggedIn ? "#1f6feb22" : "#da363322", color: kiteLoggedIn ? "#1f6feb" : "#da3633", border: `1px solid ${kiteLoggedIn ? "#1f6feb" : "#da3633"}` }}>
             {kiteLoggedIn ? "Kite Connected" : "Kite Not Connected"}
           </div>
         </div>
@@ -208,39 +117,21 @@ export default function App() {
         <StrategyCards status={status} />
 
         <div className="tab-bar">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              className={`tab-btn${activeTab === tab.id ? " active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
+          {PAGES.map((page) => (
+            <button key={page.id} className={`tab-btn${activePage === page.id ? " active" : ""}`} onClick={() => setActivePage(page.id)}>
+              {page.label}
             </button>
           ))}
         </div>
 
-        {/* All tabs always mounted (display:none when inactive) so state is preserved */}
-
-        <div style={{ display: activeTab === "livedf" ? "block" : "none" }}>
-          <LiveDFTab key="livedf" symbolsCache={symbolsCache} status={status} />
+        <div style={{ display: activePage === "ema" ? "block" : "none" }}>
+          <EmaStrategyPage status={status} symbols={symbolsCache.EMA || []} onRefreshSymbols={refreshSymbols} />
         </div>
-        <div style={{ display: activeTab === "positions" ? "block" : "none" }}>
-          <PositionsTab key="positions" />
+        <div style={{ display: activePage === "green" ? "block" : "none" }}>
+          <GreenStrategyPage status={status} symbols={symbolsCache.GREEN || []} onRefreshSymbols={refreshSymbols} />
         </div>
-        <div style={{ display: activeTab === "history" ? "block" : "none" }}>
-          <HistoryTab key="history" />
-        </div>
-        <div style={{ display: activeTab === "terminal" ? "block" : "none" }}>
-          <TerminalTab key="terminal" status={status} />
-        </div>
-        <div style={{ display: activeTab === "symbols" ? "block" : "none" }}>
-          <SymbolsTab key="symbols" symbolsCache={symbolsCache} status={status} onRefreshSymbols={refreshSymbols} />
-        </div>
-        <div style={{ display: activeTab === "database" ? "block" : "none" }}>
-          <DatabaseTab key="database" />
-        </div>
-        <div style={{ display: activeTab === "backtest" ? "block" : "none" }}>
-          <BacktestTab key="backtest" />
+        <div style={{ display: activePage === "general" ? "block" : "none" }}>
+          <GeneralPage />
         </div>
       </div>
     </div>
