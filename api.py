@@ -60,7 +60,7 @@ def get_trading_config():
     from configuration.base_config import REAL_TRADING_ENABLED
     return {"real_trading_enabled": REAL_TRADING_ENABLED}
 
-@app.post("/api/config")
+@app.post("/api/config/trading")
 def set_trading_config(body: TradingConfigRequest):
     env_path = os.path.join(BASE_DIR, "configuration", ".env")
     from dotenv import set_key
