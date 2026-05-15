@@ -63,12 +63,7 @@ def get_trading_config():
     val = str(env_vars.get("REAL_TRADING_ENABLED", "False")).lower() == "true"
     return {"real_trading_enabled": val}
 
-@app.post("/api/config/trading")
-def set_trading_config(body: TradingConfigRequest):
-    env_path = os.path.join(BASE_DIR, "configuration", ".env")
-    from dotenv import set_key
-    set_key(env_path, "REAL_TRADING_ENABLED", str(body.real_trading_enabled))
-    return {"success": True}
+
 
 @app.get("/api/kite/status")
 def get_kite_status():

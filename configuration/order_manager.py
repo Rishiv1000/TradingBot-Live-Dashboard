@@ -1,5 +1,13 @@
 import time
+import os
+from dotenv import dotenv_values
 
+def _is_real_trading_enabled(config):
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(env_path):
+        env_vars = dotenv_values(env_path)
+        return str(env_vars.get("REAL_TRADING_ENABLED", "False")).lower() == "true"
+    return getattr(config, "REAL_TRADING_ENABLED", False)
 
 def _verify_position(kite, symbol, exchange, expected_qty):
     """Verify Zerodha account actually holds expected_qty for the symbol."""
@@ -18,7 +26,7 @@ def _verify_position(kite, symbol, exchange, expected_qty):
 
 
 def place_real_buy(kite, symbol, quantity, exchange, config):
-    if not getattr(config, "REAL_TRADING_ENABLED", False):
+    if not _is_real_trading_enabled(config):
         print(f"[BLOCK] REAL_TRADING is disabled. Simulated buy for {symbol}.")
         return f"SIMULATED-BUY-{symbol}-{int(time.time())}"
 
@@ -56,7 +64,7 @@ def place_real_buy(kite, symbol, quantity, exchange, config):
 
 
 def place_real_sell(kite, symbol, quantity, exchange, product, config, tag=None):
-    if not getattr(config, "REAL_TRADING_ENABLED", False):
+    if not _is_real_trading_enabled(config):
         print(f"[BLOCK] REAL_TRADING is disabled. Simulated sell for {symbol}.")
         return f"SIMULATED-SELL-{symbol}-{int(time.time())}"
 

@@ -112,26 +112,7 @@ export default function Sidebar({
     fetchConfig();
   }, []);
 
-  const handleToggleRealTrading = async (confirmed = false) => {
-    const newValue = !realTradingEnabled;
-    if (newValue && !confirmed) {
-      setShowRealAlert(true);
-      return;
-    }
-    
-    setConfigLoading(true);
-    try {
-      const res = await api.post("/api/config/trading", { real_trading_enabled: newValue });
-      if (res.data.success) {
-        setRealTradingEnabled(res.data.real_trading_enabled);
-      }
-    } catch (e) {
-      alert("Failed to update config: " + (e.response?.data?.detail || e.message));
-    } finally {
-      setConfigLoading(false);
-      setShowRealAlert(false);
-    }
-  };
+  // Removed handleToggleRealTrading as user will manage .env manually
 
   const handleGetLoginUrl = async () => {
     try {
@@ -303,51 +284,29 @@ export default function Sidebar({
             </div>
           )}
 
-          {/* Real Trading Toggle */}
-          <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", border: `1px solid ${realTradingEnabled ? "#da3633" : "var(--border-color)"}`, background: realTradingEnabled ? "#da363318" : "transparent", transition: "all 0.3s" }}>
+          {/* Real Trading Status */}
+          <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", border: `1px solid ${realTradingEnabled ? "#da3633" : "var(--border-color)"}`, background: realTradingEnabled ? "#da363318" : "transparent" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ fontSize: "12px", fontWeight: 700, color: realTradingEnabled ? "#da3633" : "var(--muted-text)" }}>
                 {realTradingEnabled ? "🔴 REAL TRADING" : "🔒 REAL TRADE"}
               </div>
-              <div
-                onClick={() => !configLoading && handleToggleRealTrading()}
-                style={{ width: "40px", height: "20px", background: realTradingEnabled ? "#da3633" : "#30363d", borderRadius: "10px", position: "relative", cursor: configLoading ? "not-allowed" : "pointer", transition: "0.2s" }}
-              >
-                <div style={{ width: "16px", height: "16px", background: "#fff", borderRadius: "50%", position: "absolute", top: "2px", left: realTradingEnabled ? "22px" : "2px", transition: "0.2s" }} />
+              <div style={{ fontSize: "11px", fontWeight: "bold", padding: "2px 6px", borderRadius: "4px", background: realTradingEnabled ? "#da3633" : "#30363d", color: "#fff" }}>
+                {realTradingEnabled ? "ON" : "OFF"}
               </div>
             </div>
 
             {/* OFF State: Locked label */}
             {!realTradingEnabled && (
-              <div style={{ fontSize: "11px", color: "#8b949e", marginTop: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
+              <div style={{ fontSize: "11px", color: "#8b949e", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
                 🔒 Locked — Paper mode active
               </div>
             )}
 
-            {/* ON State: Warning + LIVE badge */}
+            {/* ON State: Warning */}
             {realTradingEnabled && (
               <div style={{ marginTop: "6px" }}>
                 <div style={{ fontSize: "11px", color: "#ff7b72", fontWeight: 600 }}>
-                  ⚠️ Real orders will be placed on Zerodha!
-                </div>
-              </div>
-            )}
-
-            {/* Inline confirmation alert */}
-            {showRealAlert && (
-              <div style={{ marginTop: "8px", padding: "8px", background: "#da363322", borderRadius: "6px", border: "1px solid #da3633" }}>
-                <div style={{ fontSize: "11px", color: "#ff7b72", marginBottom: "8px", fontWeight: 600 }}>
-                  ⚠️ This will place REAL orders on Zerodha. Confirm?
-                </div>
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <button className="btn-sm" style={{ flex: 1, background: "#da3633", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", padding: "4px" }}
-                    onClick={() => handleToggleRealTrading(true)}>
-                    ✅ Yes, Enable
-                  </button>
-                  <button className="btn-sm btn-secondary" style={{ flex: 1 }}
-                    onClick={() => setShowRealAlert(false)}>
-                    ✗ Cancel
-                  </button>
+                  ⚠️ Real orders will be placed!
                 </div>
               </div>
             )}
