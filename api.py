@@ -20,10 +20,7 @@ app = FastAPI(title="MultiStrategy Live API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", "http://localhost:5173", "http://localhost:5174",
-        "http://84.247.130.95:5173", "http://84.247.130.95:5174", "http://84.247.130.95:3000"
-    ],
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,17 +55,17 @@ def get_status():
         }
     return result
 
-@app.get("/api/config/trading")
+@app.get("/api/config")
 def get_trading_config():
     from configuration.base_config import REAL_TRADING_ENABLED
     return {"real_trading_enabled": REAL_TRADING_ENABLED}
 
-@app.post("/api/config/trading")
+@app.post("/api/config")
 def set_trading_config(body: TradingConfigRequest):
     env_path = os.path.join(BASE_DIR, "configuration", ".env")
     from dotenv import set_key
     set_key(env_path, "REAL_TRADING_ENABLED", str(body.real_trading_enabled))
-    return {"success": True, "real_trading_enabled": body.real_trading_enabled}
+    return {"success": True}
 
 @app.get("/api/kite/status")
 def get_kite_status():
