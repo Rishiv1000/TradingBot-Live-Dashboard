@@ -6,7 +6,6 @@ import time as _time
 from typing import Optional
 
 import mysql.connector
-import mysql.connector.pooling
 import psutil
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
@@ -22,15 +21,15 @@ if BASE_DIR not in sys.path:
 
 try:
     from config.base_config import (
-        API_KEY, API_SECRET, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_POOL_SIZE,
-        ACCESS_TOKEN_FILE, LOGS_DIR
+        API_KEY, API_SECRET, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME,
+        ACCESS_TOKEN_FILE, LOGS_DIR, REAL_TRADING_ENABLED
     )
     print("✅ Configuration loaded successfully.")
 except Exception as e:
     print(f"❌ ERROR: Failed to load configuration from base_config.py: {e}")
     API_KEY = API_SECRET = DB_HOST = DB_USER = DB_PASSWORD = DB_NAME = ""
-    DB_POOL_SIZE = 32
     ACCESS_TOKEN_FILE = LOGS_DIR = ""
+    REAL_TRADING_ENABLED = False
 
 def strategy_folder(*names):
     for name in names:
@@ -64,34 +63,21 @@ app = FastAPI(title="MultiStrategy Live API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ── DB connection pool ────────────────────────────────────────────────────────
-_db_pool = None
-_db_error_msg = ""
-try:
-    _db_pool = mysql.connector.pooling.MySQLConnectionPool(
-        pool_name="live_pool",
-        pool_size=DB_POOL_SIZE,
+# ── DB connection ─────────────────────────────────────────────────────────────
+def _db():
+    return mysql.connector.connect(
         host=DB_HOST,
         user=DB_USER,
         password=DB_PASSWORD,
         database=DB_NAME,
+        connection_timeout=10
     )
-    print(f"✅ Database Pool initialized.")
-except Exception as e:
-    _db_error_msg = str(e)
-    print(f"❌ DB Pool Error: {_db_error_msg}")
-
-
-def _db():
-    if _db_pool is None:
-        raise Exception(f"DB Error: {_db_error_msg}")
-    return _db_pool.get_connection()
 
 
 def db_fetchall(query: str, params=()):
@@ -179,7 +165,7 @@ def is_running(strategy: str) -> bool:
 class SessionRequest(BaseModel): request_token: str
 class SymbolRequest(BaseModel): symbol: str; exchange: str = "NSE"; target_price: float = 0.0
 class TargetUpdateRequest(BaseModel): symbol: str; target_price: float
-class PoolResizeRequest(BaseModel): new_size: int
+class TradingConfigRequest(BaseModel): real_trading_enabled: bool
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 @app.get("/api/db/status")
@@ -189,8 +175,8 @@ def get_db_status():
         cursor.execute("SHOW STATUS LIKE 'Threads_connected'"); connected = cursor.fetchone()["Value"]
         cursor.execute("SHOW STATUS LIKE 'Threads_running'"); running = cursor.fetchone()["Value"]
         conn.close()
-        return {"pool_name": _db_pool.pool_name, "pool_size": _db_pool.pool_size, "threads_connected": connected, "threads_running": running, "db_name": DB_NAME}
-    except Exception as e: return {"error": str(e)}
+        return {"status": "connected", "threads_connected": connected, "threads_running": running, "db_name": DB_NAME}
+    except Exception as e: return {"status": "error", "error": str(e)}
 
 @app.get("/api/status")
 def get_status():
@@ -208,6 +194,45 @@ def get_status():
 
 @app.get("/api/kite/status")
 def kite_status(): return {"logged_in": kite_logged_in()}
+
+@app.get("/api/config/trading")
+def get_trading_config():
+    # Re-import to get fresh value if changed on disk
+    import importlib
+    import config.base_config
+    importlib.reload(config.base_config)
+    return {"real_trading_enabled": config.base_config.REAL_TRADING_ENABLED}
+
+@app.post("/api/config/trading")
+def update_trading_config(body: TradingConfigRequest):
+    try:
+        config_path = os.path.join(BASE_DIR, "config", "base_config.py")
+        with open(config_path, "r") as f:
+            lines = f.readlines()
+        
+        new_lines = []
+        found = False
+        for line in lines:
+            if line.strip().startswith("REAL_TRADING_ENABLED"):
+                new_lines.append(f"REAL_TRADING_ENABLED = {body.real_trading_enabled}\n")
+                found = True
+            else:
+                new_lines.append(line)
+        
+        if not found:
+            new_lines.append(f"REAL_TRADING_ENABLED = {body.real_trading_enabled}\n")
+            
+        with open(config_path, "w") as f:
+            f.writelines(new_lines)
+            
+        # Also update in memory
+        import importlib
+        import config.base_config
+        importlib.reload(config.base_config)
+        
+        return {"success": True, "real_trading_enabled": body.real_trading_enabled}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/kite/session")
 def kite_session(body: SessionRequest):
@@ -237,6 +262,12 @@ def add_symbol(strategy: str, body: SymbolRequest):
     else:
         db_exec(f"INSERT INTO {table} (symbol, exchange, instrument_token, isExecuted) VALUES (%s, %s, %s, 0) ON DUPLICATE KEY UPDATE exchange=%s, instrument_token=%s",
                 (body.symbol.upper(), body.exchange.upper(), token, body.exchange.upper(), token))
+    return {"success": True}
+
+def update_target_price(strategy: str, body: TargetUpdateRequest):
+    strategy = strategy.upper()
+    if strategy not in STRATEGIES: raise HTTPException(status_code=404)
+    db_exec(f"UPDATE {STRATEGIES[strategy]['table']} SET target_price=%s WHERE symbol=%s", (body.target_price, body.symbol.upper()))
     return {"success": True}
 
 def delete_symbol(strategy: str, symbol: str):
@@ -363,8 +394,10 @@ from strategy_routes.green_routes import build_router as build_green_router
 
 _strategy_route_handlers = {
     "SymbolRequest": SymbolRequest,
+    "TargetUpdateRequest": TargetUpdateRequest,
     "get_symbols": get_symbols,
     "add_symbol": add_symbol,
+    "update_target_price": update_target_price,
     "delete_symbol": delete_symbol,
     "reload_symbol_cache": reload_symbol_cache,
     "get_df": get_df,

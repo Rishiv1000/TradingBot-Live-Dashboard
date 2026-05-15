@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../api";
 
 const SIDEBAR_STYLE = {
@@ -35,6 +35,37 @@ export default function Sidebar({
   const [requestToken, setRequestToken] = useState("");
   const [sessionMsg, setSessionMsg] = useState("");
   const [sessionLoading, setSessionLoading] = useState(false);
+  const [realTradingEnabled, setRealTradingEnabled] = useState(false);
+  const [configLoading, setConfigLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await api.get("/api/config/trading");
+        setRealTradingEnabled(res.data.real_trading_enabled);
+      } catch (e) {
+        console.error("Failed to fetch trading config", e);
+      }
+    };
+    fetchConfig();
+  }, []);
+
+  const handleToggleRealTrading = async () => {
+    const newValue = !realTradingEnabled;
+    if (newValue && !window.confirm("⚠️ WARNING: enabling REAL TRADING will place actual orders. Are you sure?")) return;
+    
+    setConfigLoading(true);
+    try {
+      const res = await api.post("/api/config/trading", { real_trading_enabled: newValue });
+      if (res.data.success) {
+        setRealTradingEnabled(res.data.real_trading_enabled);
+      }
+    } catch (e) {
+      alert("Failed to update config: " + (e.response?.data?.detail || e.message));
+    } finally {
+      setConfigLoading(false);
+    }
+  };
 
   const handleGetLoginUrl = async () => {
     try {
@@ -205,6 +236,40 @@ export default function Sidebar({
               {sessionMsg}
             </div>
           )}
+
+          <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", border: `1px solid ${realTradingEnabled ? "#da3633" : "var(--border-color)"}`, background: realTradingEnabled ? "#da363311" : "transparent" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: realTradingEnabled ? "#da3633" : "var(--text-color)" }}>
+                🚀 REAL TRADING
+              </div>
+              <div 
+                onClick={handleToggleRealTrading}
+                style={{ 
+                  width: "40px", 
+                  height: "20px", 
+                  background: realTradingEnabled ? "#da3633" : "#30363d", 
+                  borderRadius: "10px", 
+                  position: "relative", 
+                  cursor: configLoading ? "not-allowed" : "pointer",
+                  transition: "0.2s"
+                }}
+              >
+                <div style={{ 
+                  width: "16px", 
+                  height: "16px", 
+                  background: "#fff", 
+                  borderRadius: "50%", 
+                  position: "absolute", 
+                  top: "2px", 
+                  left: realTradingEnabled ? "22px" : "2px",
+                  transition: "0.2s"
+                }} />
+              </div>
+            </div>
+            <div style={{ fontSize: "10px", color: "var(--muted-text)", marginTop: "4px" }}>
+              {realTradingEnabled ? "Real orders will be placed." : "Paper trading mode active."}
+            </div>
+          </div>
         </div>
 
         <hr className="divider" />
