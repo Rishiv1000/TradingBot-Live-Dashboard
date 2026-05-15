@@ -40,6 +40,7 @@ start_frontend() {
     while true; do
         echo "🚀 Starting Live Frontend (Port: 5173)..."
         cd "$BASE_DIR/dashboard-ui"
+        npm i
         VITE_PORT=5173 VITE_API_TARGET="http://127.0.0.1:8000" npm run dev > ../logs/vite.log 2>&1
         echo "⚠️ Live Frontend CRASHED! Restarting in 2s..."
         cd "$BASE_DIR"
@@ -48,11 +49,12 @@ start_frontend() {
 }
 
 # Run both in background loops
-start_backend &
 start_frontend &
+start_backend &
+
 
 echo "------------------------------------------------"
-echo "✅ SUPER STABLE Live Dashboard is RUNNING."
+echo "✅ Live Dashboard is RUNNING."
 echo "🔄 Auto-restart ENABLED for max uptime."
 echo "------------------------------------------------"
 
