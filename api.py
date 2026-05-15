@@ -57,8 +57,11 @@ def get_status():
 
 @app.get("/api/config")
 def get_trading_config():
-    from configuration.base_config import REAL_TRADING_ENABLED
-    return {"real_trading_enabled": REAL_TRADING_ENABLED}
+    from dotenv import dotenv_values
+    env_path = os.path.join(BASE_DIR, "configuration", ".env")
+    env_vars = dotenv_values(env_path)
+    val = str(env_vars.get("REAL_TRADING_ENABLED", "False")).lower() == "true"
+    return {"real_trading_enabled": val}
 
 @app.post("/api/config/trading")
 def set_trading_config(body: TradingConfigRequest):

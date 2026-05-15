@@ -39,4 +39,4 @@ DEFAULT_QTY          = 1
 LIVE_EXCHANGE        = "NSE"
 TIMEFRAME            = "minute"
 BOT_RUNNING          = True
-REAL_TRADING_ENABLED = True
+REAL_TRADING_ENABLED = os.getenv("REAL_TRADING_ENABLED", "False").lower() == "true"

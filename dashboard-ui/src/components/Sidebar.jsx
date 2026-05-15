@@ -49,15 +49,20 @@ export default function Sidebar({
   // Trade Notification Polling
   useEffect(() => {
     let lastTradeIds = new Set();
+    let lastPositionIds = new Set();
     const checkNewTrades = async () => {
       try {
-        const [ema, green] = await Promise.all([
+        const [ema, green, emaPos, greenPos] = await Promise.all([
           api.get("/api/ema/history").catch(() => ({ data: [] })),
           api.get("/api/green/history").catch(() => ({ data: [] })),
+          api.get("/api/ema/positions").catch(() => ({ data: [] })),
+          api.get("/api/green/positions").catch(() => ({ data: [] })),
         ]);
+        
+        // Closed Trades
         const allTrades = [...(ema.data || []), ...(green.data || [])];
         allTrades.forEach(trade => {
-          const id = `${trade.symbol}-${trade.buy_time}-${trade.sell_time}`;
+          const id = `${trade.symbol}-${trade.buy_time || trade.buytime}-${trade.sell_time || trade.selltime}`;
           if (!lastTradeIds.has(id) && lastTradeIds.size > 0) {
             const pnl = trade.pnl >= 0 ? `+₹${trade.pnl}` : `-₹${Math.abs(trade.pnl)}`;
             if ("Notification" in window && Notification.permission === "granted") {
@@ -69,6 +74,25 @@ export default function Sidebar({
           }
           lastTradeIds.add(id);
         });
+
+        // Open Positions
+        const allPositions = [...(emaPos.data || []), ...(greenPos.data || [])];
+        allPositions.forEach(pos => {
+          const buyTime = pos.buy_time || pos.buytime;
+          const buyPrice = pos.buy_price || pos.buyprice;
+          const id = `${pos.symbol}-${buyTime}`;
+          
+          if (!lastPositionIds.has(id) && lastPositionIds.size > 0) {
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification(`🚀 New Position Opened: ${pos.symbol}`, {
+                body: `Entry Price: ₹${buyPrice}`,
+                icon: "/favicon.ico"
+              });
+            }
+          }
+          lastPositionIds.add(id);
+        });
+
       } catch {}
     };
     const t = setInterval(checkNewTrades, 30000);
