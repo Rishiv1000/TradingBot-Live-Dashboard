@@ -86,11 +86,11 @@ def get_df(symbol: str):
 @router.get("/positions")
 def get_positions():
     table = STRATEGIES["GREEN"]["table"]
-    return db_fetchall(f"SELECT symbol, buy_price as buyprice, buy_time as buytime FROM {table} WHERE isExecuted=1")
+    return db_fetchall(f"SELECT symbol, buyprice, buytime FROM {table} WHERE isExecuted=1")
 
 @router.get("/history")
 def get_history():
-    return db_fetchall("SELECT 'GREEN' as strategy, symbol, buy_time as buytime, buy_price as buyprice, sell_time as selltime, sell_price as sellprice, pnl, reason FROM green_trades_live ORDER BY id DESC LIMIT 100")
+    return db_fetchall("SELECT 'GREEN' as strategy, symbol, buytime, buyprice, selltime, sellprice, pnl, reason FROM green_trades_live ORDER BY id DESC LIMIT 100")
 
 @router.get("/terminal")
 def get_terminal():
