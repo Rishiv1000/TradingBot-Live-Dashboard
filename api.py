@@ -40,6 +40,10 @@ def get_db_status():
 @app.get("/api/status")
 def get_status():
     cache = _get_proc_cache()
+    from dotenv import dotenv_values
+    env_path = os.path.join(BASE_DIR, "configuration", ".env")
+    env_vars = dotenv_values(env_path)
+    real_trading = str(env_vars.get("REAL_TRADING_ENABLED", "False")).lower() == "true"
     result = {}
     for strategy, meta in STRATEGIES.items():
         try:
@@ -52,6 +56,8 @@ def get_status():
             "running": cache.get(strategy) is not None,
             "symbol_count": sym_count,
             "open_count": open_count,
+            "trading_enabled": real_trading,
+            "color": meta.get("color", "#58a6ff"),
         }
     return result
 
