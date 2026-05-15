@@ -37,6 +37,44 @@ export default function Sidebar({
   const [sessionLoading, setSessionLoading] = useState(false);
   const [realTradingEnabled, setRealTradingEnabled] = useState(false);
   const [configLoading, setConfigLoading] = useState(false);
+  const [showRealAlert, setShowRealAlert] = useState(false);
+
+  // Notification Permission
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Trade Notification Polling
+  useEffect(() => {
+    let lastTradeIds = new Set();
+    const checkNewTrades = async () => {
+      try {
+        const [ema, green] = await Promise.all([
+          api.get("/api/ema/history").catch(() => ({ data: [] })),
+          api.get("/api/green/history").catch(() => ({ data: [] })),
+        ]);
+        const allTrades = [...(ema.data || []), ...(green.data || [])];
+        allTrades.forEach(trade => {
+          const id = `${trade.symbol}-${trade.buy_time}-${trade.sell_time}`;
+          if (!lastTradeIds.has(id) && lastTradeIds.size > 0) {
+            const pnl = trade.pnl >= 0 ? `+₹${trade.pnl}` : `-₹${Math.abs(trade.pnl)}`;
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification(`🔔 Trade Closed: ${trade.symbol}`, {
+                body: `${trade.strategy || "STRATEGY"} | ${trade.reason} | PnL: ${pnl}`,
+                icon: "/favicon.ico"
+              });
+            }
+          }
+          lastTradeIds.add(id);
+        });
+      } catch {}
+    };
+    const t = setInterval(checkNewTrades, 30000);
+    checkNewTrades();
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -50,9 +88,12 @@ export default function Sidebar({
     fetchConfig();
   }, []);
 
-  const handleToggleRealTrading = async () => {
+  const handleToggleRealTrading = async (confirmed = false) => {
     const newValue = !realTradingEnabled;
-    if (newValue && !window.confirm("⚠️ WARNING: enabling REAL TRADING will place actual orders. Are you sure?")) return;
+    if (newValue && !confirmed) {
+      setShowRealAlert(true);
+      return;
+    }
     
     setConfigLoading(true);
     try {
@@ -64,6 +105,7 @@ export default function Sidebar({
       alert("Failed to update config: " + (e.response?.data?.detail || e.message));
     } finally {
       setConfigLoading(false);
+      setShowRealAlert(false);
     }
   };
 
@@ -237,38 +279,54 @@ export default function Sidebar({
             </div>
           )}
 
-          <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", border: `1px solid ${realTradingEnabled ? "#da3633" : "var(--border-color)"}`, background: realTradingEnabled ? "#da363311" : "transparent" }}>
+          {/* Real Trading Toggle */}
+          <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", border: `1px solid ${realTradingEnabled ? "#da3633" : "var(--border-color)"}`, background: realTradingEnabled ? "#da363318" : "transparent", transition: "all 0.3s" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontSize: "12px", fontWeight: 700, color: realTradingEnabled ? "#da3633" : "var(--text-color)" }}>
-                🚀 REAL TRADING
+              <div style={{ fontSize: "12px", fontWeight: 700, color: realTradingEnabled ? "#da3633" : "var(--muted-text)" }}>
+                {realTradingEnabled ? "🔴 REAL TRADING" : "🔒 REAL TRADE"}
               </div>
-              <div 
-                onClick={handleToggleRealTrading}
-                style={{ 
-                  width: "40px", 
-                  height: "20px", 
-                  background: realTradingEnabled ? "#da3633" : "#30363d", 
-                  borderRadius: "10px", 
-                  position: "relative", 
-                  cursor: configLoading ? "not-allowed" : "pointer",
-                  transition: "0.2s"
-                }}
+              <div
+                onClick={() => !configLoading && handleToggleRealTrading()}
+                style={{ width: "40px", height: "20px", background: realTradingEnabled ? "#da3633" : "#30363d", borderRadius: "10px", position: "relative", cursor: configLoading ? "not-allowed" : "pointer", transition: "0.2s" }}
               >
-                <div style={{ 
-                  width: "16px", 
-                  height: "16px", 
-                  background: "#fff", 
-                  borderRadius: "50%", 
-                  position: "absolute", 
-                  top: "2px", 
-                  left: realTradingEnabled ? "22px" : "2px",
-                  transition: "0.2s"
-                }} />
+                <div style={{ width: "16px", height: "16px", background: "#fff", borderRadius: "50%", position: "absolute", top: "2px", left: realTradingEnabled ? "22px" : "2px", transition: "0.2s" }} />
               </div>
             </div>
-            <div style={{ fontSize: "10px", color: "var(--muted-text)", marginTop: "4px" }}>
-              {realTradingEnabled ? "Real orders will be placed." : "Paper trading mode active."}
-            </div>
+
+            {/* OFF State: Locked label */}
+            {!realTradingEnabled && (
+              <div style={{ fontSize: "11px", color: "#8b949e", marginTop: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
+                🔒 Locked — Paper mode active
+              </div>
+            )}
+
+            {/* ON State: Warning + LIVE badge */}
+            {realTradingEnabled && (
+              <div style={{ marginTop: "6px" }}>
+                <div style={{ fontSize: "11px", color: "#ff7b72", fontWeight: 600 }}>
+                  ⚠️ Real orders will be placed on Zerodha!
+                </div>
+              </div>
+            )}
+
+            {/* Inline confirmation alert */}
+            {showRealAlert && (
+              <div style={{ marginTop: "8px", padding: "8px", background: "#da363322", borderRadius: "6px", border: "1px solid #da3633" }}>
+                <div style={{ fontSize: "11px", color: "#ff7b72", marginBottom: "8px", fontWeight: 600 }}>
+                  ⚠️ This will place REAL orders on Zerodha. Confirm?
+                </div>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button className="btn-sm" style={{ flex: 1, background: "#da3633", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", padding: "4px" }}
+                    onClick={() => handleToggleRealTrading(true)}>
+                    ✅ Yes, Enable
+                  </button>
+                  <button className="btn-sm btn-secondary" style={{ flex: 1 }}
+                    onClick={() => setShowRealAlert(false)}>
+                    ✗ Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
