@@ -55,7 +55,7 @@ def get_status():
         }
     return result
 
-@app.get("/api/config")
+@app.get("/api/config/trading")
 def get_trading_config():
     from dotenv import dotenv_values
     env_path = os.path.join(BASE_DIR, "configuration", ".env")
