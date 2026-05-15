@@ -109,8 +109,8 @@ def get_frontend_log():
         return {"lines": "".join(f.readlines()[-300:])}
 
 # ── Include Strategy Routers ──────────────────────────────────────────────────
-from emaStrategy.ema_routes import router as ema_router
-from greenStrategy.green_routes import router as green_router
+from emaStrategy.endpoints_ema import router as ema_router
+from greenStrategy.endpoints_green import router as green_router
 
 app.include_router(ema_router)
 app.include_router(green_router)
