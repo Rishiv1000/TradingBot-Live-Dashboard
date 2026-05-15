@@ -4,13 +4,13 @@ import Sidebar from "./components/Sidebar";
 import StrategyCards from "./components/StrategyCards";
 import EmaStrategyPage from "./pages/EmaStrategyPage";
 import GreenStrategyPage from "./pages/GreenStrategyPage";
-import GeneralPage from "./pages/GeneralPage";
+import GeneralTerminalTab from "./pages/GeneralTerminalTab";
 import "./App.css";
 
 const PAGES = [
   { id: "ema", label: "EMA Strategy" },
   { id: "green", label: "Green Strategy" },
-  { id: "general", label: "General" },
+  { id: "terminal", label: "Terminal" },
 ];
 
 export default function App() {
@@ -130,8 +130,8 @@ export default function App() {
         <div style={{ display: activePage === "green" ? "block" : "none" }}>
           <GreenStrategyPage status={status} symbols={symbolsCache.GREEN || []} onRefreshSymbols={refreshSymbols} />
         </div>
-        <div style={{ display: activePage === "general" ? "block" : "none" }}>
-          <GeneralPage />
+        <div style={{ display: activePage === "terminal" ? "block" : "none" }}>
+          <GeneralTerminalTab />
         </div>
       </div>
     </div>
