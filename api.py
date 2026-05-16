@@ -39,35 +39,34 @@ def get_db_status():
 
 @app.get("/api/status")
 def get_status():
-    cache = _get_proc_cache()
     from dotenv import dotenv_values
+    cache    = _get_proc_cache()
     env_path = os.path.join(BASE_DIR, "configuration", ".env")
     env_vars = dotenv_values(env_path)
     real_trading = str(env_vars.get("REAL_TRADING_ENABLED", "False")).lower() == "true"
     result = {}
     for strategy, meta in STRATEGIES.items():
+        sym_count = open_count = 0
+        conn = None
         try:
-            conn = _db(); cur = conn.cursor()
-            cur.execute(f"SELECT COUNT(*) FROM {meta['table']}"); sym_count = cur.fetchone()[0]
-            cur.execute(f"SELECT COUNT(*) FROM {meta['table']} WHERE isExecuted=1"); open_count = cur.fetchone()[0]
-            conn.close()
-        except: sym_count = open_count = 0
+            conn = _db()
+            cur  = conn.cursor()
+            cur.execute(f"SELECT COUNT(*) FROM {meta['table']}")
+            sym_count  = cur.fetchone()[0]
+            cur.execute(f"SELECT COUNT(*) FROM {meta['table']} WHERE isExecuted=1")
+            open_count = cur.fetchone()[0]
+        except Exception:
+            pass
+        finally:
+            if conn: conn.close()
         result[strategy] = {
-            "running": cache.get(strategy) is not None,
-            "symbol_count": sym_count,
-            "open_count": open_count,
+            "running":         cache.get(strategy) is not None,
+            "symbol_count":    sym_count,
+            "open_count":      open_count,
             "trading_enabled": real_trading,
-            "color": meta.get("color", "#58a6ff"),
+            "color":           meta.get("color", "#58a6ff"),
         }
     return result
-
-@app.get("/api/config/trading")
-def get_trading_config():
-    from dotenv import dotenv_values
-    env_path = os.path.join(BASE_DIR, "configuration", ".env")
-    env_vars = dotenv_values(env_path)
-    val = str(env_vars.get("REAL_TRADING_ENABLED", "False")).lower() == "true"
-    return {"real_trading_enabled": val}
 
 
 

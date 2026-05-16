@@ -1,5 +1,6 @@
 import time
 import os
+import traceback
 from dotenv import dotenv_values
 
 def _is_real_trading_enabled(config):
@@ -27,14 +28,13 @@ def _verify_position(kite, symbol, exchange, expected_qty):
 
 def place_real_buy(kite, symbol, quantity, exchange, config):
     if not _is_real_trading_enabled(config):
-        print(f"[BLOCK] REAL_TRADING is disabled. Simulated buy for {symbol}.")
-        return f"SIMULATED-BUY-{symbol}-{int(time.time())}"
+        print(f"🔒 [BLOCKED] Real BUY/SELL function is blocked by .env — REAL_TRADING_ENABLED=False")
+        return None
 
     try:
         instrument = f"{exchange.upper()}:{symbol.upper()}"
         ltp = kite.ltp(instrument)[instrument]["last_price"]
 
-        # Aggressive limit — 0.5% above LTP so it fills immediately
         slippage = getattr(config, "BUY_SLIPPAGE", 0.5)
         limit_price = round(ltp * (1 + slippage / 100), 1)
 
@@ -60,19 +60,19 @@ def place_real_buy(kite, symbol, quantity, exchange, config):
         return order_id
     except Exception as e:
         print(f"❌ BUY order failed for {symbol}: {e}")
+        print(traceback.format_exc())
         return None
 
 
 def place_real_sell(kite, symbol, quantity, exchange, product, config, tag=None):
     if not _is_real_trading_enabled(config):
-        print(f"[BLOCK] REAL_TRADING is disabled. Simulated sell for {symbol}.")
-        return f"SIMULATED-SELL-{symbol}-{int(time.time())}"
+        print(f"🔒 [BLOCKED] Real BUY/SELL function is blocked by .env — REAL_TRADING_ENABLED=False")
+        return None
 
     try:
         instrument = f"{exchange.upper()}:{symbol.upper()}"
         ltp = kite.ltp(instrument)[instrument]["last_price"]
 
-        # Aggressive limit — 0.5% below LTP so it fills immediately
         slippage = getattr(config, "SELL_SLIPPAGE", 0.5)
         limit_price = round(ltp * (1 - slippage / 100), 1)
 
@@ -99,4 +99,5 @@ def place_real_sell(kite, symbol, quantity, exchange, product, config, tag=None)
         return order_id
     except Exception as e:
         print(f"❌ SELL order failed for {symbol}: {e}")
+        print(traceback.format_exc())
         return None

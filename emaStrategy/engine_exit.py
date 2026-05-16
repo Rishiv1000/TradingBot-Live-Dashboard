@@ -12,6 +12,7 @@ if ROOT_DIR not in sys.path: sys.path.insert(0, ROOT_DIR)
 
 import st_config_ema
 from api_shared import db_fetchall, db_exec
+from engine_db import setup_db
 from configuration.order_manager import place_real_buy
 
 class EMAExitEngine:
@@ -27,22 +28,35 @@ class EMAExitEngine:
 
     def _fetch_open_trades(self):
         table = st_config_ema.EMA_SYMBOLS_LIVE_TBL
-        return db_fetchall(f"SELECT * FROM {table} WHERE isExecuted=1")
+        try:
+            return db_fetchall(f"SELECT * FROM {table} WHERE isExecuted=1")
+        except Exception as e:
+            if "doesn't exist" in str(e).lower() or "1146" in str(e):
+                print(f"[EMA-EXIT] Table {table} not found. Running setup_db...")
+                setup_db()
+                return db_fetchall(f"SELECT * FROM {table} WHERE isExecuted=1")
+            else:
+                raise e
+        return []
 
     # ── STRATEGY EXIT LOGIC ────────────────────────────────
     def _check_exit(self, df, trade, live_price):
         """
-        EMA Short Exit Conditions:
-          1. TARGET HIT  — live_price <= target_price (price fell, profit)
-          2. EMA REVERSAL — EMA9 crossed above EMA20 on last candle
-        Returns: (is_exit: bool, trigger_price: float, reason: str)
+        EMA Short Exit Conditions (Check both):
+          1. TARGET HIT  — live_price <= target_price (if target_price > 0)
+          2. EMA REVERSAL — EMA9 crossed above EMA20 (cross_up == 1)
         """
         target_price = float(trade.get("target_price") or 0)
+        
+        # 1. Target Hit?
         if target_price > 0 and live_price <= target_price:
             return True, target_price, "TARGET_HIT"
+            
+        # 2. EMA Reversal?
         if df is not None and len(df) >= 2:
             if df.iloc[-2].get("cross_up") == 1:
                 return True, df.iloc[-2]["close"], "EMA_REVERSAL"
+                
         return False, None, None
 
     def _refresh_subscriptions(self, kws):
@@ -71,11 +85,21 @@ class EMAExitEngine:
             self.state["subscribed_tokens"] = latest
 
     def _perform_exit(self, trade, live_price, trigger_price, reason):
-        """Places buy-to-cover order and logs the trade."""
+        """Places buy-to-cover order, waits for actual fill, then logs trade."""
         symbol   = trade["symbol"]
         exchange = trade["exchange"]
         token    = trade["instrument_token"]
-        qty      = getattr(st_config_ema, "DEFAULT_QTY", 1)
+        qty      = getattr(st_config_ema, "DEFAULT_QTY")
+
+        symbols_table = st_config_ema.EMA_SYMBOLS_LIVE_TBL
+
+        # Step 1: Save trigger_sell_price immediately to DB
+        db_exec(f"""
+            UPDATE {symbols_table}
+            SET trigger_sell_price=%s
+            WHERE instrument_token=%s
+        """, (trigger_price, token))
+        print(f"[EMA-EXIT] 🎯 {symbol} exit triggered @ {trigger_price} | Reason: {reason}")
 
         order_id = place_real_buy(self.kite, symbol, qty, exchange, st_config_ema)
         if not order_id:
@@ -84,18 +108,31 @@ class EMAExitEngine:
                 self.state["processing"].discard(trade["buy_order_id"])
             return
 
-        # Fetch actual fill price if real order
-        exit_price = live_price
+        # Step 2: Wait for actual fill price
+        actual_exit_price = live_price
         if not str(order_id).startswith("SIMULATED"):
-            try:
-                for state in reversed(self.kite.order_history(order_id)):
-                    if state["status"] == "COMPLETE" and state.get("average_price"):
-                        exit_price = float(state["average_price"])
-                        break
-            except Exception:
-                pass
+            for attempt in range(6):
+                time.sleep(2 if attempt == 0 else 3)
+                try:
+                    for state in reversed(self.kite.order_history(order_id)):
+                        if state["status"] == "COMPLETE":
+                            if state.get("average_price"):
+                                actual_exit_price = float(state["average_price"])
+                            break
+                        elif state["status"] in ("CANCELLED", "REJECTED"):
+                            print(f"[EMA-EXIT] ❌ BUY order {order_id} {state['status']} for {symbol}.")
+                            with self.state["lock"]:
+                                self.state["processing"].discard(trade["buy_order_id"])
+                            return
+                    else:
+                        print(f"[EMA-EXIT] ⏳ {symbol} exit order pending (attempt {attempt+1}/6)...")
+                        continue
+                    break
+                except Exception as e:
+                    print(f"[EMA-EXIT] ⚠️ order_history error for {symbol}: {e}")
 
-        self._log_and_reset(trade, exit_price, trigger_price, order_id, reason)
+        # Step 3: Log trade with actual fill prices
+        self._log_and_reset(trade, actual_exit_price, trigger_price, order_id, reason)
         with self.state["lock"]:
             self.state["processing"].discard(trade["buy_order_id"])
             self.state["open_by_token"].pop(token, None)
@@ -104,10 +141,10 @@ class EMAExitEngine:
     def _log_and_reset(self, trade, exit_price, trigger_price, order_id, reason):
         symbol        = trade["symbol"]
         token         = trade["instrument_token"]
-        entry_price   = float(trade["buy_price"])
-        trigger_entry = float(trade.get("trigger_buy_price") or entry_price)
-        entry_time    = trade["buy_time"]
-        entry_oid     = trade["buy_order_id"]
+        entry_price   = float(trade["sell_price"])
+        trigger_entry = float(trade.get("trigger_sell_price") or entry_price)
+        entry_time    = trade["sell_time"]
+        entry_oid     = trade["sell_order_id"]
 
         pnl            = round(entry_price - exit_price, 2)   # SHORT: profit when price drops
         entry_slip     = round(entry_price - trigger_entry, 2)
@@ -119,22 +156,23 @@ class EMAExitEngine:
 
         db_exec(f"""
             INSERT INTO {trades_table}
-            (symbol, trigger_buy_price, buy_price, buy_time,
-             trigger_sell_price, sell_price, sell_time,
-             pnl, reason, slippage, buy_order_id, sell_order_id, strategy)
+            (symbol, trigger_sell_price, sell_price, sell_time, sell_order_id,
+             trigger_buy_price, buy_price, buy_time, buy_order_id,
+             pnl, reason, slippage, mode)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (symbol, trigger_entry, entry_price, entry_time,
-              trigger_price, exit_price, datetime.now(),
-              pnl, reason, total_slippage, entry_oid, order_id, "EMA"))
+        """, (symbol, trigger_entry, entry_price, entry_time, entry_oid,
+              trigger_price, exit_price, datetime.now(), order_id,
+              pnl, reason, total_slippage, "LIVE"))
 
+        # Reset symbol state
         db_exec(f"""
             UPDATE {symbols_table}
-            SET isExecuted=0, buy_price=NULL, trigger_buy_price=NULL,
-                buy_time=NULL, buy_order_id=NULL, target_price=0
+            SET isExecuted=0, sell_price=NULL, trigger_sell_price=NULL,
+                sell_time=NULL, sell_order_id=NULL, trigger_buy_price=NULL, target_price=0
             WHERE instrument_token=%s
         """, (token,))
 
-        print(f"[EMA-EXIT] ✅ {symbol} EXIT: {reason} @ {exit_price} | PnL: {pnl} | Slippage: {total_slippage}")
+        print(f"[EMA-EXIT] ✅ {symbol} Closed @ {exit_price} | PnL: {pnl} | Slip: ₹{total_slippage}")
 
     def start(self):
         """Start KiteTicker WebSocket for real-time price monitoring."""

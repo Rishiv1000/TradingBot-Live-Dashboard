@@ -30,14 +30,8 @@ export default function Sidebar({
   theme,
   onToggleTheme,
 }) {
-  const [loginUrl, setLoginUrl] = useState("");
-  const [showUrlModal, setShowUrlModal] = useState(false);
-  const [requestToken, setRequestToken] = useState("");
-  const [sessionMsg, setSessionMsg] = useState("");
-  const [sessionLoading, setSessionLoading] = useState(false);
-  const [realTradingEnabled, setRealTradingEnabled] = useState(false);
-  const [configLoading, setConfigLoading] = useState(false);
-  const [showRealAlert, setShowRealAlert] = useState(false);
+  const realTradingEnabled = status ? Object.values(status).some(s => s.trading_enabled) : false;
+
 
   // Notification Permission
   useEffect(() => {
@@ -100,19 +94,7 @@ export default function Sidebar({
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const res = await api.get("/api/config/trading");
-        setRealTradingEnabled(res.data.real_trading_enabled);
-      } catch (e) {
-        console.error("Failed to fetch trading config", e);
-      }
-    };
-    fetchConfig();
-  }, []);
 
-  // Removed handleToggleRealTrading as user will manage .env manually
 
   const handleGetLoginUrl = async () => {
     try {

@@ -23,7 +23,7 @@ def setup_db():
 
     print(f"[{STRATEGY_NAME}] Setting up database tables...")
 
-    # 1. Live Symbols Table
+    # 1. Live Symbols Table (Active Positions)
     cursor.execute(f"""
         CREATE TABLE IF NOT EXISTS {EMA_SYMBOLS_LIVE_TBL} (
             id                  INT AUTO_INCREMENT PRIMARY KEY,
@@ -32,34 +32,40 @@ def setup_db():
             instrument_token    INT,
             isExecuted          TINYINT(1)   DEFAULT 0,
             target_price        DOUBLE       DEFAULT 0,
-            stoploss_price      DOUBLE       DEFAULT 0,
-            trigger_buy_price   DOUBLE       DEFAULT NULL,
-            buy_price           DOUBLE       DEFAULT NULL,
-            buy_time            DATETIME     DEFAULT NULL,
-            buy_order_id        VARCHAR(100) DEFAULT NULL,
+            
+            -- Entry (Short Sell)
+            trigger_sell_price  DOUBLE       DEFAULT NULL,
+            sell_price          DOUBLE       DEFAULT NULL,
+            sell_time           DATETIME     DEFAULT NULL,
+            sell_order_id       VARCHAR(100) DEFAULT NULL,
+            
             product             VARCHAR(20)  DEFAULT 'MIS',
             last_sell_time      DATETIME     DEFAULT NULL
         )
     """)
- 
 
-    # 2. Live Trades Log
+    # 2. Live Trades Log (Historical Data)
     cursor.execute(f"""
         CREATE TABLE IF NOT EXISTS {EMA_TRADES_LIVE_TBL} (
             id                   INT AUTO_INCREMENT PRIMARY KEY,
             symbol               VARCHAR(50),
-            trigger_buy_price   DOUBLE       DEFAULT NULL,
-            buy_price            DOUBLE       DEFAULT NULL,
-            buy_time             DATETIME     DEFAULT NULL,
-            trigger_sell_price  DOUBLE       DEFAULT NULL,
+            
+            -- Entry Data (Sell)
+            trigger_sell_price   DOUBLE       DEFAULT NULL,
             sell_price           DOUBLE       DEFAULT NULL,
             sell_time            DATETIME     DEFAULT NULL,
+            sell_order_id        VARCHAR(100),
+            
+            -- Exit Data (Buy)
+            trigger_buy_price    DOUBLE       DEFAULT NULL,
+            buy_price            DOUBLE       DEFAULT NULL,
+            buy_time             DATETIME     DEFAULT NULL,
+            buy_order_id         VARCHAR(100),
+            
             pnl                  DOUBLE       DEFAULT 0,
             reason               VARCHAR(255),
             slippage             DOUBLE       DEFAULT 0,
-            buy_order_id         VARCHAR(100),
-            sell_order_id        VARCHAR(100),
-            strategy             VARCHAR(50)  DEFAULT NULL
+            mode                 VARCHAR(20)  DEFAULT 'LIVE'
         )
     """)
 
@@ -80,7 +86,7 @@ def reset_positions():
     )
     cursor = conn.cursor()
     EMA_SYMBOLS_LIVE_TBL = getattr(st_config_ema, "EMA_SYMBOLS_LIVE_TBL")
-    cursor.execute(f"UPDATE {EMA_SYMBOLS_LIVE_TBL} SET isExecuted=0, buy_price=NULL, buy_time=NULL, buy_order_id=NULL")
+    cursor.execute(f"UPDATE {EMA_SYMBOLS_LIVE_TBL} SET isExecuted=0, sell_price=NULL, sell_time=NULL, sell_order_id=NULL")
     conn.commit()
     conn.close()
     print(f"[{st_config_ema.STRATEGY_NAME}] Positions reset.")

@@ -6,34 +6,22 @@ export default function StrategyCards({ status }) {
 
   return (
     <div>
-      {/* Trading lock banner */}
-      {!tradingEnabled && (
-        <div style={{
-          background: "#da363322",
-          border: "1px solid #da3633",
-          borderRadius: "8px",
-          padding: "10px 16px",
-          marginBottom: "16px",
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-        }}>
-          <span style={{ fontSize: "18px" }}>🔒</span>
-          <div>
-            <div style={{ fontWeight: 700, color: "#da3633", fontSize: "14px" }}>
-              Real Trading Blocked By Backend
-            </div>
-            <div style={{ color: "var(--muted-text)", fontSize: "12px", marginTop: "2px" }}>
-              Set <code style={{ background: "var(--input-bg)", padding: "1px 6px", borderRadius: "4px" }}>REAL_TRADING_ENABLED = True</code> in <code style={{ background: "var(--input-bg)", padding: "1px 6px", borderRadius: "4px" }}>shared/base_config.py</code> to unlock strategies.
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Real Trading Status Badge */}
+      <div style={{
+        padding: "8px 12px",
+        borderRadius: "8px",
+        background: tradingEnabled ? "#2ea04322" : "#30363d44",
+        color: tradingEnabled ? "#2ea043" : "#8b949e",
+        fontWeight: 700,
+        marginBottom: "12px",
+      }}>
+        {tradingEnabled ? "🟢 Live" : "⚪ Not Live"}
+      </div>
 
       {/* Strategy cards */}
       <div style={{ display: "flex", gap: "16px", marginBottom: "24px", flexWrap: "wrap" }}>
         {Object.entries(status).map(([strategy, info]) => {
-          const running     = info.running;
+          const running = info.running;
           const statusColor = running ? "#2ea043" : "#da3633";
           const statusLabel = running ? "RUNNING" : "STOPPED";
           return (

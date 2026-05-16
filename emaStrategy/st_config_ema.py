@@ -23,8 +23,6 @@ def get_kite_session():
         return None
 
 STRATEGY_NAME = "EMA"
-TARGET = 0.5
-STOPLOSS = 0.5
 EMA_LOOKBACK_DAYS = 3.0
 EMA_TIMEFRAME = "5minute"
 EMA_INTERVAL_MINUTES = 5

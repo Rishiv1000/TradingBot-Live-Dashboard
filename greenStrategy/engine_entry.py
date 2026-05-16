@@ -13,6 +13,7 @@ if ROOT_DIR not in sys.path: sys.path.insert(0, ROOT_DIR)
 import st_config_green
 from api_shared import db_fetchall, db_exec
 from engine_symbol_data import build_green_dataframe, refresh_all_green_data
+from engine_db import setup_table
 from configuration.order_manager import place_real_buy
 
 BOT_START_TIME = datetime.now()
@@ -131,7 +132,15 @@ class EntryEngine:
         now = datetime.now().strftime("%H:%M:%S")
 
         # Single DB query — all symbols
-        all_rows_list = db_fetchall(f"SELECT * FROM {SYMBOLS_TABLE}")
+        try:
+            all_rows_list = db_fetchall(f"SELECT * FROM {SYMBOLS_TABLE}")
+        except Exception as e:
+            if "doesn't exist" in str(e).lower() or "1146" in str(e):
+                print(f"[GREEN-LIVE] Table {SYMBOLS_TABLE} not found. Running setup_table...")
+                setup_table()
+                all_rows_list = db_fetchall(f"SELECT * FROM {SYMBOLS_TABLE}")
+            else:
+                raise e
         all_rows = {r["symbol"]: r for r in all_rows_list}
 
         for symbol, row in all_rows.items():
