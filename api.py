@@ -41,9 +41,18 @@ def get_db_status():
 def get_status():
     from dotenv import dotenv_values
     cache    = _get_proc_cache()
-    env_path = os.path.join(BASE_DIR, "configuration", ".env")
-    env_vars = dotenv_values(env_path)
-    real_trading = str(env_vars.get("REAL_TRADING_ENABLED", "False")).lower() == "true"
+    # Check both configuration/.env and root .env for robustness
+    paths = [
+        os.path.join(BASE_DIR, "configuration", ".env"),
+        os.path.join(BASE_DIR, ".env")
+    ]
+    env_vars = {}
+    for p in paths:
+        if os.path.exists(p):
+            env_vars.update(dotenv_values(p))
+            
+    val = str(env_vars.get("REAL_TRADING_ENABLED", "False")).strip().lower()
+    real_trading = val == "true"
     result = {}
     for strategy, meta in STRATEGIES.items():
         sym_count = open_count = 0
