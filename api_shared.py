@@ -3,6 +3,7 @@ import sys
 import time as _time
 import pickle
 import subprocess
+from datetime import datetime
 import mysql.connector
 import psutil
 from fastapi import HTTPException
@@ -133,6 +134,32 @@ def terminate_strategy_process(strategy: str):
         except:
             return {"success": False, "error": "Kill failed"}
     return {"success": True, "info": "No process found"}
+
+def get_all_relevant_processes():
+    procs = []
+    # Search for dashboard, strategy runners, and frontend processes
+    for p in psutil.process_iter(["pid", "name", "cmdline", "create_time"]):
+        try:
+            cmd = " ".join(p.info.get("cmdline") or [])
+            # Filter logic: contains key terms or references our project directory
+            if any(term in cmd for term in ["uvicorn", "main_runner.py", "npm", "vite"]) or BASE_DIR in cmd:
+                procs.append({
+                    "pid": p.info["pid"],
+                    "name": p.info["name"],
+                    "cmd": cmd[:200] + ("..." if len(cmd) > 200 else ""),
+                    "created": datetime.fromtimestamp(p.info["create_time"]).strftime("%H:%M:%S")
+                })
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return procs
+
+def kill_process_by_pid(pid: int):
+    try:
+        proc = psutil.Process(pid)
+        proc.kill()
+        return True
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return False
 
 # ── Shared Models ─────────────────────────────────────────────────────────────
 class SessionRequest(BaseModel):

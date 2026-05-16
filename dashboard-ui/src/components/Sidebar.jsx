@@ -171,6 +171,20 @@ export default function Sidebar({
   const [stopApiMsg, setStopApiMsg] = useState("");
   const [logoutMsg, setLogoutMsg] = useState("");
 
+  const handleKillBackend = async () => {
+    if (!window.confirm("⚠️ CRITICAL: This will kill the entire backend server and dashboard process. You will need to manually restart it from the terminal. Continue?")) return;
+    try {
+      setStopApiMsg("Stopping...");
+      await api.post("/api/kill-backend");
+      setStopApiMsg("✅ Signal sent. Closing...");
+      setTimeout(() => {
+        alert("Dashboard stopped. Please close this tab.");
+      }, 2000);
+    } catch (e) {
+      setStopApiMsg("❌ " + (e.response?.data?.detail || e.message));
+    }
+  };
+
   const handleSetupDb = async () => {
     setSetupDbLoading(true); setSetupDbMsg("");
     try {
@@ -272,32 +286,18 @@ export default function Sidebar({
             </div>
           )}
 
-          {/* Real Trading Status */}
-          <div style={{ marginTop: "16px", padding: "10px", borderRadius: "8px", border: `1px solid ${realTradingEnabled ? "#da3633" : "var(--border-color)"}`, background: realTradingEnabled ? "#da363318" : "transparent" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontSize: "12px", fontWeight: 700, color: realTradingEnabled ? "#da3633" : "var(--muted-text)" }}>
-                {realTradingEnabled ? "🔴 REAL TRADING" : "🔒 REAL TRADE"}
-              </div>
-              <div style={{ fontSize: "11px", fontWeight: "bold", padding: "2px 6px", borderRadius: "4px", background: realTradingEnabled ? "#da3633" : "#30363d", color: "#fff" }}>
-                {realTradingEnabled ? "ON" : "OFF"}
-              </div>
-            </div>
-
-            {/* OFF State: Locked label */}
-            {!realTradingEnabled && (
-              <div style={{ fontSize: "11px", color: "#8b949e", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
-                🔒 Locked — Paper mode active
-              </div>
-            )}
-
-            {/* ON State: Warning */}
-            {realTradingEnabled && (
-              <div style={{ marginTop: "6px" }}>
-                <div style={{ fontSize: "11px", color: "#ff7b72", fontWeight: 600 }}>
-                  ⚠️ Real orders will be placed!
-                </div>
-              </div>
-            )}
+          {/* Simple Live/Not Live Status */}
+          <div style={{ marginTop: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ 
+              width: "10px", 
+              height: "10px", 
+              borderRadius: "50%", 
+              background: realTradingEnabled ? "#2ea043" : "#8b949e",
+              boxShadow: realTradingEnabled ? "0 0 8px #2ea043" : "none"
+            }}></span>
+            <span style={{ fontSize: "13px", fontWeight: 700, color: realTradingEnabled ? "#2ea043" : "var(--muted-text)" }}>
+              {realTradingEnabled ? "LIVE TRADING ACTIVE" : "NOT LIVE (PAPER MODE)"}
+            </span>
           </div>
         </div>
 
@@ -387,8 +387,17 @@ export default function Sidebar({
           Last sync: {lastSync || "—"}
         </div>
 
-        {/* Logout */}
-        <div style={{ marginTop: "12px" }}>
+        {/* Logout & Kill */}
+        <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+          <button
+            className="btn-danger"
+            style={{ width: "100%", fontSize: "12px", background: "#30363d", border: "1px solid #da3633", color: "#da3633" }}
+            onClick={handleKillBackend}
+          >
+            🔌 Kill Dashboard Process
+          </button>
+          {stopApiMsg && <div style={{ fontSize: "11px", color: "#da3633" }}>{stopApiMsg}</div>}
+
           <button
             className="btn-danger"
             style={{ width: "100%", fontSize: "12px" }}

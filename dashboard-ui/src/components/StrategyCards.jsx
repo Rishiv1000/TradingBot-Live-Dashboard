@@ -8,14 +8,20 @@ export default function StrategyCards({ status }) {
     <div>
       {/* Real Trading Status Badge */}
       <div style={{
-        padding: "8px 12px",
-        borderRadius: "8px",
-        background: tradingEnabled ? "#2ea04322" : "#30363d44",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "6px 14px",
+        borderRadius: "20px",
+        background: tradingEnabled ? "#2ea04322" : "#30363d",
         color: tradingEnabled ? "#2ea043" : "#8b949e",
         fontWeight: 700,
-        marginBottom: "12px",
+        fontSize: "13px",
+        marginBottom: "16px",
+        border: `1px solid ${tradingEnabled ? "#2ea043" : "#444"}`
       }}>
-        {tradingEnabled ? "🟢 Live" : "⚪ Not Live"}
+        <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: tradingEnabled ? "#2ea043" : "#8b949e", boxShadow: tradingEnabled ? "0 0 8px #2ea043" : "none" }}></span>
+        {tradingEnabled ? "LIVE TRADING ON" : "NOT LIVE (PAPER MODE)"}
       </div>
 
       {/* Strategy cards */}
@@ -32,14 +38,10 @@ export default function StrategyCards({ status }) {
                 flex: "1 1 200px",
                 borderLeft: `4px solid ${info.color}`,
                 minWidth: "180px",
-                opacity: !tradingEnabled ? 0.6 : 1,
               }}
             >
               <div style={{ fontSize: "18px", fontWeight: 900, color: info.color, marginBottom: "6px" }}>
                 {strategy}
-                {!tradingEnabled && (
-                  <span style={{ fontSize: "13px", marginLeft: "8px", color: "#da3633" }}>🔒</span>
-                )}
               </div>
               <span
                 className="pill"

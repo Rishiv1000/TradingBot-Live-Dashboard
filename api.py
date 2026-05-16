@@ -12,7 +12,8 @@ if BASE_DIR not in sys.path:
 from api_shared import (
     API_KEY, API_SECRET, DB_NAME, ACCESS_TOKEN, 
     STRATEGIES, _db, db_fetchall, db_exec, _get_proc_cache,
-    SessionRequest, TradingConfigRequest, TargetUpdateRequest
+    SessionRequest, TradingConfigRequest, TargetUpdateRequest,
+    get_all_relevant_processes, kill_process_by_pid
 )
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
@@ -141,6 +142,18 @@ def set_defaults():
         return {"success": True, "message": "Positions reset successfully."}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+@app.get("/api/system/processes")
+def list_processes():
+    return get_all_relevant_processes()
+
+class KillRequest(BaseModel):
+    pid: int
+
+@app.post("/api/system/kill")
+def kill_system_process(body: KillRequest):
+    success = kill_process_by_pid(body.pid)
+    return {"success": success}
 
 # ── Include Strategy Routers ──────────────────────────────────────────────────
 from emaStrategy.endpoints_ema import router as ema_router
