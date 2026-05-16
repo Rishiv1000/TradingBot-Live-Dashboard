@@ -143,6 +143,17 @@ def set_defaults():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+@app.post("/api/system/real-trading")
+def set_real_trading(body: TradingConfigRequest):
+    try:
+        from dotenv import set_key
+        env_path = os.path.join(BASE_DIR, "configuration", ".env")
+        val = "True" if body.real_trading_enabled else "False"
+        set_key(env_path, "REAL_TRADING_ENABLED", val)
+        return {"success": True, "enabled": body.real_trading_enabled}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 @app.get("/api/system/processes")
 def list_processes():
     return get_all_relevant_processes()

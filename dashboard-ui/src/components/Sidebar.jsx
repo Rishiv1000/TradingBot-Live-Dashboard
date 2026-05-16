@@ -185,6 +185,23 @@ export default function Sidebar({
     }
   };
 
+  const handleToggleRealTrading = async () => {
+    const nextVal = !realTradingEnabled;
+    const action = nextVal ? "⚠️ ENABLE REAL TRADING? Warning: Real orders will be placed!" : "Switch to PAPER MODE (Safe)?";
+    if (!window.confirm(action)) return;
+    
+    try {
+      const res = await api.post("/api/system/real-trading", { real_trading_enabled: nextVal });
+      if (res.data.success) {
+        onRefresh();
+      } else {
+        alert("Failed to toggle: " + res.data.error);
+      }
+    } catch (e) {
+      alert("Error: " + e.message);
+    }
+  };
+
   const handleSetupDb = async () => {
     setSetupDbLoading(true); setSetupDbMsg("");
     try {
@@ -286,18 +303,45 @@ export default function Sidebar({
             </div>
           )}
 
-          {/* Simple Live/Not Live Status */}
-          <div style={{ marginTop: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ 
-              width: "10px", 
-              height: "10px", 
-              borderRadius: "50%", 
-              background: realTradingEnabled ? "#2ea043" : "#8b949e",
-              boxShadow: realTradingEnabled ? "0 0 8px #2ea043" : "none"
-            }}></span>
-            <span style={{ fontSize: "13px", fontWeight: 700, color: realTradingEnabled ? "#2ea043" : "var(--muted-text)" }}>
-              {realTradingEnabled ? "LIVE TRADING ACTIVE" : "NOT LIVE (PAPER MODE)"}
-            </span>
+          {/* Simple Live/Not Live Status with Toggle */}
+          <div style={{ marginTop: "16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ 
+                width: "10px", 
+                height: "10px", 
+                borderRadius: "50%", 
+                background: realTradingEnabled ? "#2ea043" : "#8b949e",
+                boxShadow: realTradingEnabled ? "0 0 8px #2ea043" : "none"
+              }}></span>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: realTradingEnabled ? "#2ea043" : "var(--muted-text)" }}>
+                {realTradingEnabled ? "LIVE MODE" : "PAPER MODE"}
+              </span>
+            </div>
+            
+            {/* Minimal Toggle Switch */}
+            <div 
+              onClick={handleToggleRealTrading}
+              style={{
+                width: "40px",
+                height: "20px",
+                background: realTradingEnabled ? "#2ea043" : "#30363d",
+                borderRadius: "10px",
+                position: "relative",
+                cursor: "pointer",
+                transition: "background 0.3s"
+              }}
+            >
+              <div style={{
+                width: "16px",
+                height: "16px",
+                background: "#fff",
+                borderRadius: "50%",
+                position: "absolute",
+                top: "2px",
+                left: realTradingEnabled ? "22px" : "2px",
+                transition: "left 0.3s"
+              }}></div>
+            </div>
           </div>
         </div>
 
