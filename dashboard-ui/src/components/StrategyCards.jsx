@@ -21,7 +21,7 @@ export default function StrategyCards({ status }) {
         border: `1px solid ${tradingEnabled ? "#2ea043" : "#444"}`
       }}>
         <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: tradingEnabled ? "#2ea043" : "#8b949e", boxShadow: tradingEnabled ? "0 0 8px #2ea043" : "none" }}></span>
-        {tradingEnabled ? "LIVE TRADING ON" : "NOT LIVE (PAPER MODE)"}
+        {tradingEnabled ? "LIVE TRADING ON" : "NOT LIVE"}
       </div>
 
       {/* Strategy cards */}

@@ -78,7 +78,11 @@ def get_status():
         }
     return result
 
-
+@app.get("/api/kite/login_url")
+def get_login_url():
+    if not API_KEY or "your_api_key" in API_KEY.lower():
+        raise HTTPException(status_code=400, detail="Zerodha API_KEY is missing or invalid in .env file.")
+    return {"url": f"https://kite.zerodha.com/connect/login?v=3&api_key={API_KEY}"}
 
 @app.get("/api/kite/status")
 def get_kite_status():
@@ -142,6 +146,28 @@ def set_defaults():
         return {"success": True, "message": "Positions reset successfully."}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+@app.get("/api/logs/backend")
+def get_backend_log():
+    log_path = os.path.join(BASE_DIR, "others", "logs", "api.log")
+    if not os.path.exists(log_path): return {"lines": "No log yet."}
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+            return {"lines": "".join(lines[-500:])}
+    except Exception as e:
+        return {"lines": f"Error reading logs: {str(e)}"}
+
+@app.get("/api/logs/frontend")
+def get_frontend_log():
+    log_path = os.path.join(BASE_DIR, "others", "logs", "vite.log")
+    if not os.path.exists(log_path): return {"lines": "No log yet."}
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+            return {"lines": "".join(lines[-500:])}
+    except Exception as e:
+        return {"lines": f"Error reading logs: {str(e)}"}
 
 @app.post("/api/system/real-trading")
 def set_real_trading(body: TradingConfigRequest):

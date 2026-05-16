@@ -58,7 +58,7 @@ export default function Sidebar({
           api.get("/api/ema/positions").catch(() => ({ data: [] })),
           api.get("/api/green/positions").catch(() => ({ data: [] })),
         ]);
-        
+
         // Closed Trades
         const allTrades = [...(ema.data || []), ...(green.data || [])];
         allTrades.forEach(trade => {
@@ -81,7 +81,7 @@ export default function Sidebar({
           const buyTime = pos.buy_time || pos.buytime;
           const buyPrice = pos.buy_price || pos.buyprice;
           const id = `${pos.symbol}-${buyTime}`;
-          
+
           if (!lastPositionIds.has(id) && lastPositionIds.size > 0) {
             if ("Notification" in window && Notification.permission === "granted") {
               new Notification(`🚀 New Position Opened: ${pos.symbol}`, {
@@ -93,7 +93,7 @@ export default function Sidebar({
           lastPositionIds.add(id);
         });
 
-      } catch {}
+      } catch { }
     };
     const t = setInterval(checkNewTrades, 30000);
     checkNewTrades();
@@ -187,9 +187,9 @@ export default function Sidebar({
 
   const handleToggleRealTrading = async () => {
     const nextVal = !realTradingEnabled;
-    const action = nextVal ? "⚠️ ENABLE REAL TRADING? Warning: Real orders will be placed!" : "Switch to PAPER MODE (Safe)?";
+    const action = nextVal ? "⚠️ ENABLE REAL TRADING? Warning: Real orders will be placed!" : "Switch to Safe MODE ?";
     if (!window.confirm(action)) return;
-    
+
     try {
       const res = await api.post("/api/system/real-trading", { real_trading_enabled: nextVal });
       if (res.data.success) {
@@ -249,7 +249,7 @@ export default function Sidebar({
           <div style={{ fontSize: "16px", fontWeight: 800, color: "var(--text-color)" }}>
             📡 Live Terminal
           </div>
-          <button 
+          <button
             onClick={onToggleTheme}
             className="btn-secondary btn-sm"
             style={{ padding: "4px 8px", fontSize: "14px" }}
@@ -306,10 +306,10 @@ export default function Sidebar({
           {/* Simple Live/Not Live Status with Toggle */}
           <div style={{ marginTop: "16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ 
-                width: "10px", 
-                height: "10px", 
-                borderRadius: "50%", 
+              <span style={{
+                width: "10px",
+                height: "10px",
+                borderRadius: "50%",
                 background: realTradingEnabled ? "#2ea043" : "#8b949e",
                 boxShadow: realTradingEnabled ? "0 0 8px #2ea043" : "none"
               }}></span>
@@ -317,9 +317,9 @@ export default function Sidebar({
                 {realTradingEnabled ? "LIVE MODE" : "PAPER MODE"}
               </span>
             </div>
-            
+
             {/* Minimal Toggle Switch */}
-            <div 
+            <div
               onClick={handleToggleRealTrading}
               style={{
                 width: "40px",

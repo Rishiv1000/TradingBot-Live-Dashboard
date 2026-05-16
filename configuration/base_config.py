@@ -37,6 +37,6 @@ DB_NAME     = os.getenv("DB_NAME", "trading_bot_live")
 # --- [COMMON TRADING SETTINGS] ---
 DEFAULT_QTY          = 1
 LIVE_EXCHANGE        = "NSE"
-TIMEFRAME            = "minute"
 BOT_RUNNING          = True
-REAL_TRADING_ENABLED = str(os.getenv("REAL_TRADING_ENABLED", "False")).strip("'\"").lower() == "true"
+BUY_SLIPPAGE         = 0.05
+SELL_SLIPPAGE        = 0.05

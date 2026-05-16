@@ -9,14 +9,14 @@ export default function SystemLogsTab() {
 
   const fetchLogs = useCallback(async () => {
     try {
-      const bRes = await api.get("/api/logs/backend");
+      const bRes = await api.get(`/api/logs/backend?t=${Date.now()}`);
       setBackendLogs(bRes.data.lines);
     } catch (e) {
       setBackendLogs("Failed to fetch backend logs.");
     }
 
     try {
-      const fRes = await api.get("/api/logs/frontend");
+      const fRes = await api.get(`/api/logs/frontend?t=${Date.now()}`);
       setFrontendLogs(fRes.data.lines);
     } catch (e) {
       setFrontendLogs("Failed to fetch frontend logs.");
