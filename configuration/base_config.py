@@ -14,7 +14,6 @@ API_KEY           = os.getenv("KITE_API_KEY")
 API_SECRET        = os.getenv("KITE_API_SECRET")
 ACCESS_TOKEN      = os.getenv("KITE_ACCESS_TOKEN")
 LOGS_DIR          = os.path.join(PROJECT_ROOT, "others", "logs")
-BACKTEST_RESULTS_DIR = os.path.join(PROJECT_ROOT, "others", "backtest_results")
 
 # Credential Validation
 if not API_KEY:

@@ -17,12 +17,12 @@ if BASE_DIR not in sys.path:
 try:
     from configuration.base_config import (
         API_KEY, API_SECRET, DB_HOST, DB_USER, DB_PASSWORD, DB_NAME,
-        ACCESS_TOKEN, LOGS_DIR, BACKTEST_RESULTS_DIR, REAL_TRADING_ENABLED
+        ACCESS_TOKEN, LOGS_DIR, REAL_TRADING_ENABLED
     )
 except Exception as e:
     print(f"❌ Shared API: Configuration error: {e}")
     API_KEY = API_SECRET = DB_HOST = DB_USER = DB_PASSWORD = DB_NAME = ""
-    ACCESS_TOKEN = LOGS_DIR = BACKTEST_RESULTS_DIR = ""
+    ACCESS_TOKEN = LOGS_DIR = ""
     REAL_TRADING_ENABLED = False
 
 def strategy_folder(*names):
