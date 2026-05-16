@@ -9,6 +9,7 @@ source "$BASE_DIR/util.sh"
 
 pkill -f "uvicorn api:app" 2>/dev/null
 pkill -f "npm run dev" 2>/dev/null
+pkill -f "tail -f.*api.log" 2>/dev/null
 rm -f .stop_backend
 sleep 1
 
@@ -24,9 +25,18 @@ source "/www/server/pyporject_evn/pythonapps/bin/activate"
 echo "[✓] venv activated"
 
 echo "[*] Starting Backend..."
+echo "[*] Live logs enabled. Showing api.log below:"
+
+# Background tail to show logs live in terminal
+tail -n 0 -f "$BASE_DIR/others/logs/api.log" &
+TAIL_PID=$!
+
+# Cleanup background tail on script exit
+trap "kill $TAIL_PID 2>/dev/null; exit" INT TERM
+
 while true; do
     uvicorn api:app --host 0.0.0.0 --port 8000 >> "$BASE_DIR/others/logs/api.log" 2>&1
-    [ -f "$BASE_DIR/.stop_backend" ] && echo "Stopped." && exit 0
+    [ -f "$BASE_DIR/.stop_backend" ] && echo "Stopped." && kill $TAIL_PID 2>/dev/null && exit 0
     echo "⚠️ Backend crashed. Restarting in 3s..."
     sleep 3
 done
