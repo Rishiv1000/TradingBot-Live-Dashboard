@@ -52,7 +52,7 @@ def get_status():
         if os.path.exists(p):
             env_vars.update(dotenv_values(p))
             
-    val = str(env_vars.get("REAL_TRADING_ENABLED", "False")).strip().lower()
+    val = str(env_vars.get("REAL_TRADING_ENABLED", "False")).strip("'\" ").lower()
     real_trading = val == "true"
     result = {}
     for strategy, meta in STRATEGIES.items():
@@ -149,7 +149,7 @@ def set_real_trading(body: TradingConfigRequest):
         from dotenv import set_key
         env_path = os.path.join(BASE_DIR, "configuration", ".env")
         val = "True" if body.real_trading_enabled else "False"
-        set_key(env_path, "REAL_TRADING_ENABLED", val)
+        set_key(env_path, "REAL_TRADING_ENABLED", val, quote_mode="never")
         return {"success": True, "enabled": body.real_trading_enabled}
     except Exception as e:
         return {"success": False, "error": str(e)}
