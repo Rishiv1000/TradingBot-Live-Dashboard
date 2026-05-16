@@ -32,6 +32,12 @@ export default function Sidebar({
 }) {
   const realTradingEnabled = status ? Object.values(status).some(s => s.trading_enabled) : false;
 
+  const [requestToken, setRequestToken] = useState("");
+  const [sessionLoading, setSessionLoading] = useState(false);
+  const [sessionMsg, setSessionMsg] = useState("");
+  const [showUrlModal, setShowUrlModal] = useState(false);
+  const [loginUrl, setLoginUrl] = useState("");
+
 
   // Notification Permission
   useEffect(() => {
