@@ -1,6 +1,7 @@
 import os
 import sys
 from fastapi import FastAPI, HTTPException, Request
+from dotenv import dotenv_values
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -52,7 +53,12 @@ def get_status():
         if os.path.exists(p):
             env_vars.update(dotenv_values(p))
             
-    val = str(env_vars.get("REAL_TRADING_ENABLED", "False")).strip("'\" ").lower()
+    # Priority for Toggles: .env file > System Env (AAPanel)
+    real_trading_val = env_vars.get("REAL_TRADING_ENABLED")
+    if real_trading_val is None:
+        real_trading_val = os.getenv("REAL_TRADING_ENABLED", "False")
+        
+    val = str(real_trading_val).strip("'\" ").lower()
     real_trading = val == "true"
     result = {}
     for strategy, meta in STRATEGIES.items():
@@ -80,9 +86,11 @@ def get_status():
 
 @app.get("/api/kite/login_url")
 def get_login_url():
-    if not API_KEY or "your_api_key" in API_KEY.lower():
-        raise HTTPException(status_code=400, detail="Zerodha API_KEY is missing or invalid in .env file.")
-    return {"url": f"https://kite.zerodha.com/connect/login?v=3&api_key={API_KEY}"}
+    # Priority: System Env (AAPanel) > Config variable
+    current_key = os.getenv("KITE_API_KEY") or API_KEY
+    if not current_key or "your_api_key" in current_key.lower():
+        raise HTTPException(status_code=400, detail="Zerodha API_KEY is missing or invalid. Please set it in AAPanel or .env file.")
+    return {"url": f"https://kite.zerodha.com/connect/login?v=3&api_key={current_key}"}
 
 @app.get("/api/kite/status")
 def get_kite_status():
@@ -98,13 +106,16 @@ def get_kite_status():
 
 @app.post("/api/kite/session")
 def kite_session(body: SessionRequest):
-    if not API_KEY or not API_SECRET:
-        return {"success": False, "error": "API_KEY/API_SECRET missing"}
+    current_key = os.getenv("KITE_API_KEY") or API_KEY
+    current_secret = os.getenv("KITE_API_SECRET") or API_SECRET
+    
+    if not current_key or not current_secret:
+        return {"success": False, "error": "API_KEY or API_SECRET missing in AAPanel/env."}
     try:
         from kiteconnect import KiteConnect
         from dotenv import set_key
-        kite = KiteConnect(api_key=API_KEY)
-        data = kite.generate_session(body.request_token, api_secret=API_SECRET)
+        kite = KiteConnect(api_key=current_key)
+        data = kite.generate_session(body.request_token, api_secret=current_secret)
         token = data["access_token"]
         env_path = os.path.join(BASE_DIR, "configuration", ".env")
         set_key(env_path, "KITE_ACCESS_TOKEN", token)

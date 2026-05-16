@@ -7,7 +7,7 @@ PROJECT_ROOT = os.path.dirname(CONFIG_DIR)
 
 # Load .env from config directory
 env_path = os.path.join(CONFIG_DIR, ".env")
-load_dotenv(env_path)
+load_dotenv(env_path, override=True)
 
 # --- [SYSTEM & AUTH] ---
 API_KEY           = os.getenv("KITE_API_KEY")
