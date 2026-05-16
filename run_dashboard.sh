@@ -7,9 +7,10 @@ cd "$BASE_DIR"
 
 source "$BASE_DIR/util.sh"
 
-pkill -f "uvicorn api:app" 2>/dev/null
-pkill -f "npm run dev" 2>/dev/null
-pkill -f "tail -f.*api.log" 2>/dev/null
+# Step 2: Kill old processes for this project only (Port 8000/5173)
+fuser -k 8000/tcp 2>/dev/null
+fuser -k 5173/tcp 2>/dev/null
+pkill -f "tail -n 0 -f $BASE_DIR/others/logs/api.log" 2>/dev/null
 rm -f .stop_backend
 sleep 1
 
