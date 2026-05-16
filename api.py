@@ -13,16 +13,18 @@ if BASE_DIR not in sys.path:
 from api_shared import (
     API_KEY, API_SECRET, DB_NAME, ACCESS_TOKEN, 
     STRATEGIES, _db, db_fetchall, db_exec, _get_proc_cache,
-    SessionRequest, TradingConfigRequest, TargetUpdateRequest,
-    get_all_relevant_processes, kill_process_by_pid
+    SessionRequest, TradingConfigRequest,
+    get_all_relevant_processes, kill_process_by_pid,
+    LOGS_DIR
 )
+from configuration.base_config import ACCESS_TOKEN_FILE, REAL_TRADING_ENABLED
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
-app = FastAPI(title="MultiStrategy Live API")
+app = FastAPI(title="Live Trading API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,38 +43,19 @@ def get_db_status():
 
 @app.get("/api/status")
 def get_status():
-    from dotenv import dotenv_values
-    cache    = _get_proc_cache()
-    # Check both configuration/.env and root .env for robustness
-    paths = [
-        os.path.join(BASE_DIR, "configuration", ".env"),
-        os.path.join(BASE_DIR, ".env")
-    ]
-    env_vars = {}
-    for p in paths:
-        if os.path.exists(p):
-            env_vars.update(dotenv_values(p))
-            
-    # Priority for Toggles: .env file > System Env (AAPanel)
-    real_trading_val = env_vars.get("REAL_TRADING_ENABLED")
-    if real_trading_val is None:
-        real_trading_val = os.getenv("REAL_TRADING_ENABLED", "False")
-        
-    val = str(real_trading_val).strip("'\" ").lower()
-    real_trading = val == "true"
+    cache = _get_proc_cache()
+    # Use the value from base_config
+    real_trading = REAL_TRADING_ENABLED
+    
     result = {}
     for strategy, meta in STRATEGIES.items():
         sym_count = open_count = 0
         conn = None
         try:
-            conn = _db()
-            cur  = conn.cursor()
-            cur.execute(f"SELECT COUNT(*) FROM {meta['table']}")
-            sym_count  = cur.fetchone()[0]
-            cur.execute(f"SELECT COUNT(*) FROM {meta['table']} WHERE isExecuted=1")
-            open_count = cur.fetchone()[0]
-        except Exception:
-            pass
+            conn = _db(); cur = conn.cursor()
+            cur.execute(f"SELECT COUNT(*) FROM {meta['table']}"); sym_count = cur.fetchone()[0]
+            cur.execute(f"SELECT COUNT(*) FROM {meta['table']} WHERE isExecuted=1"); open_count = cur.fetchone()[0]
+        except Exception: pass
         finally:
             if conn: conn.close()
         result[strategy] = {
@@ -86,7 +69,6 @@ def get_status():
 
 @app.get("/api/kite/login_url")
 def get_login_url():
-    # Priority: System Env (AAPanel) > Config variable
     current_key = os.getenv("KITE_API_KEY") or API_KEY
     if not current_key or "your_api_key" in current_key.lower():
         raise HTTPException(status_code=400, detail="Zerodha API_KEY is missing or invalid. Please set it in AAPanel or .env file.")
@@ -113,50 +95,34 @@ def kite_session(body: SessionRequest):
         return {"success": False, "error": "API_KEY or API_SECRET missing in AAPanel/env."}
     try:
         from kiteconnect import KiteConnect
-        from dotenv import set_key
         kite = KiteConnect(api_key=current_key)
         data = kite.generate_session(body.request_token, api_secret=current_secret)
         token = data["access_token"]
-        env_path = os.path.join(BASE_DIR, "configuration", ".env")
-        set_key(env_path, "KITE_ACCESS_TOKEN", token)
+        
+        # Save to TXT file for persistence (Overwrite)
+        with open(ACCESS_TOKEN_FILE, "w") as f:
+            f.write(token)
+            
         return {"success": True}
     except Exception as e: return {"success": False, "error": str(e)}
-
-@app.get("/api/logs/backend")
-def get_backend_log():
-    log_path = os.path.join(BASE_DIR, "others", "logs", "api.log")
-    if not os.path.exists(log_path): return {"lines": "No log yet."}
-    with open(log_path, "r", encoding="utf-8", errors="replace") as f:
-        return {"lines": "".join(f.readlines()[-300:])}
-
-@app.get("/api/logs/frontend")
-def get_frontend_log():
-    log_path = os.path.join(BASE_DIR, "others", "logs", "vite.log")
-    if not os.path.exists(log_path): return {"lines": "No log yet."}
-    with open(log_path, "r", encoding="utf-8", errors="replace") as f:
-        return {"lines": "".join(f.readlines()[-300:])}
 
 @app.post("/api/setup-db")
 def setup_db():
     try:
         from emaStrategy.engine_db import setup_db as ema_setup
         from greenStrategy.engine_db import setup_table as green_setup
-        ema_setup()
-        green_setup()
+        ema_setup(); green_setup()
         return {"success": True, "message": "Database tables created successfully."}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except Exception as e: return {"success": False, "error": str(e)}
 
 @app.post("/api/set-defaults")
 def set_defaults():
     try:
         from emaStrategy.engine_db import reset_positions as ema_reset
         from greenStrategy.engine_db import reset_positions as green_reset
-        ema_reset()
-        green_reset()
+        ema_reset(); green_reset()
         return {"success": True, "message": "Positions reset successfully."}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except Exception as e: return {"success": False, "error": str(e)}
 
 @app.get("/api/logs/backend")
 def get_backend_log():
@@ -165,9 +131,8 @@ def get_backend_log():
     try:
         with open(log_path, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
-            return {"lines": "".join(lines[-500:])}
-    except Exception as e:
-        return {"lines": f"Error reading logs: {str(e)}"}
+            return {"lines": "".join(lines[-300:])}
+    except Exception as e: return {"lines": f"Error reading logs: {str(e)}"}
 
 @app.get("/api/logs/frontend")
 def get_frontend_log():
@@ -176,20 +141,12 @@ def get_frontend_log():
     try:
         with open(log_path, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
-            return {"lines": "".join(lines[-500:])}
-    except Exception as e:
-        return {"lines": f"Error reading logs: {str(e)}"}
+            return {"lines": "".join(lines[-300:])}
+    except Exception as e: return {"lines": f"Error reading logs: {str(e)}"}
 
 @app.post("/api/system/real-trading")
 def set_real_trading(body: TradingConfigRequest):
-    try:
-        from dotenv import set_key
-        env_path = os.path.join(BASE_DIR, "configuration", ".env")
-        val = "True" if body.real_trading_enabled else "False"
-        set_key(env_path, "REAL_TRADING_ENABLED", val, quote_mode="never")
-        return {"success": True, "enabled": body.real_trading_enabled}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    return {"success": False, "error": "REAL_TRADING_ENABLED is now a system variable. Change it in AAPanel and restart the Dashboard."}
 
 @app.get("/api/system/processes")
 def list_processes():
