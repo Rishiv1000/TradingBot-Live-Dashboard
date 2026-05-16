@@ -1,9 +1,7 @@
 # ── Sensitive ─────────────────────────────────────────────────
 .env
 configuration/.env
-configuration/access_token.txt
 dashboard-ui/.env
-dashboard-ui/.env.local
 dashboard-ui/package-lock.json
 dashboard-ui/node_modules/
 dashboard-ui/dist/
@@ -28,4 +26,3 @@ logs/*.log
 .DS_Store
 Thumbs.db
 others/
-/configuration/.env

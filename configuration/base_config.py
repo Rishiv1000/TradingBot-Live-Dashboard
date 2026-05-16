@@ -37,5 +37,5 @@ DB_NAME     = os.getenv("DB_NAME", "trading_bot_live")
 DEFAULT_QTY          = 1
 LIVE_EXCHANGE        = "NSE"
 BOT_RUNNING          = True
-BUY_SLIPPAGE         = 0.05
-SELL_SLIPPAGE        = 0.05
+BUY_SLIPPAGE         = 0.5
+SELL_SLIPPAGE        = 0.5
